@@ -16,6 +16,8 @@ Status of this version: first verdicts from the initial EDA, Saturday 14 Nov 12:
 - The final round has new shoppers, new products and new trends.
 - Oracle = the 10 products the hidden model itself would pick. The reference recommender can be beaten.
 - Told to us in person: the simulator was written by an AI agent.
+- Clarified 14 Nov 17:05 CET: a shopper who already bought a product, organically (`shop.history_events`, `shop.events`) or through our lists, is much less likely to buy it again when we show it. The history and the live organic events were generated without this effect, so repeat purchases seen there mean nothing. Our own feedback follows the rule.
+- Changed 14 Nov 16:45 CET: a product that sold out less than 5 s before the request no longer makes the answer invalid. That slot sells nothing.
 
 ## Measured
 

@@ -96,7 +96,7 @@ def pull_all(refresh: bool = False) -> dict:
     for tag, cut, uf, n in (("h", CUT_H, HIST_USERS, 16), ("l", END, LIVE_USERS, 32)):
         out["products_" + tag] = pull("products", CUT=cut, tag=tag)
         out["carousel_" + tag] = pull("carousel", CUT=cut, tag=tag)
-        out["users_" + tag] = pull("users", 4, CUT=cut, UF=uf, tag=tag)
+        out["users_" + tag] = pull("users", 1, CUT=cut, UF=uf, tag=tag).drop_duplicates("u")
         out["up_" + tag] = pull("up", n, CUT=cut, UF=uf, tag=tag)
     out["segment"] = pd.DataFrame(json.loads((rt.ROOT / "data" / "segment_category.json").read_text(encoding="utf-8")))
     return out

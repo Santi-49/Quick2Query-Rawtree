@@ -15,6 +15,10 @@ q2q = "q2q.cli:main"
 [dependency-groups]
 dev = ["pytest>=8"]
 dashboard = ["streamlit>=1.40", "pandas>=2.2"]
+ml = [
+    "scikit-learn>=1.9.1",
+    "torch>=2.15.0",
+]
 
 [build-system]
 requires = ["hatchling"]
