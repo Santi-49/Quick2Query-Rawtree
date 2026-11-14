@@ -1,6 +1,6 @@
 # H-blend · fusing ranker2 and rules5
 
-- **Status:** live trial queued, 14 Nov 21:50 UTC
+- **Status:** live trial since 14 Nov 21:38 UTC
 - **Owner:** main session
 - **Claim:** the two strategies fail on different requests (rules5 ranks today's carts first 68% of the time, ranker2 33%; ranker2 wins everywhere else), so a rank fusion of their lists beats both.
 - **Test:** `blend1` = reciprocal rank fusion of the two top-10 lists (weights 1.0 / 0.6, K 10). Replay held out in time, 574 purchases, `eda/replay/holdout3.py`.
