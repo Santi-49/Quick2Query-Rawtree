@@ -290,11 +290,14 @@ class State:
             self._last_buy[source] = last
 
     def _today_events(self) -> None:
-        """Views and carts of shop.events: the last 2 hours at start, then what is new."""
+        """Views and carts of shop.events: at start the last 2 hours of views and every cart, then what is new."""
         if self._last_today:
             chunks = [f"ts::DateTime64(3) > toDateTime64('{self._last_today}', 3) - INTERVAL 3 SECOND"]
         else:
-            chunks = [f"ts::DateTime64(3) > (SELECT max(ts::DateTime64(3)) FROM shop.events) - INTERVAL 120 MINUTE AND cityHash64(user_id::String) % 4 = {c}" for c in range(4)]
+            edge = "(SELECT max(ts::DateTime64(3)) FROM shop.events) - INTERVAL 120 MINUTE"
+            chunks = [f"ts::DateTime64(3) > {edge} AND cityHash64(user_id::String) % 4 = {c}" for c in range(4)]
+            # older carts too: 31 of 50 purchases of a product carted today came more than 2 hours after the cart (H-gap)
+            chunks += [f"event_type::String = 'add_to_cart' AND ts::DateTime64(3) <= {edge} AND cityHash64(user_id::String) % 8 = {c}" for c in range(8)]
         rows = sorted((r for where in chunks for r in rt.query(TODAY.replace("{where}", where))), key=lambda r: r["ts"])
         seen = set()
         for r in rows:
@@ -338,6 +341,10 @@ class State:
     def today_views(self, user_id: str) -> list[str]:
         """Products the shopper viewed earlier today (organic events), newest last."""
         return self._today.get(user_id, [])
+
+    def today_carts(self, user_id: str) -> dict[str, int]:
+        """Products the shopper added to the cart in the live stream -> times."""
+        return self._today_carts.get(user_id, {})
 
     def shopper(self, user_id: str, live: bool = True) -> Shopper | None:
         """What we know about a shopper. live=False leaves out today, for training on past feedback without leaking its outcome."""

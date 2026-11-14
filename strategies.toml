@@ -131,3 +131,9 @@ summary = "The ranker's 21 inputs plus phrase taste, session phrase overlap, car
 status = ""
 conclusion = "Sole challenger since 17:25 UTC. First 30 minutes: 1.94% on ordinary requests (483) against 1.78% for rules4, and 3.14% on new shoppers (222) against 2.25%. Offline: purchased product in the top 3 in 74% of held-out requests, ranker 57%. Adding history rows to its training gave no gain (H-history-pretrain)."
 hypotheses = ["ml-signals", "session-shape", "reshow-rank", "home-ceiling"]
+
+[strategies.rules5]
+summary = "rules4 plus the gap study: today's organic carts lead (x30 over the first view's x12), the only recent view x18, the last of several x3, product buys-per-view one power steeper, history carts by count and fewer views, no price-cut boost; home is cold2 with carts on a flatter popularity base."
+status = "queued"
+conclusion = "Not run live. Our feedback 14 Nov to 17:20 UTC: carted today converts 1.72% / 6.37% per weighted impression (returning / new with views) against 0.69% / 1.24% for the first view, available on 40-44% of requests, at slot 1 in 2%. Dry run on 300 live requests: 300/300 valid, 0.9 ms median, 2.1 ms p95; top 3 differs from rules4 on 262/300. Needs today's carts since the start of the day in State (H-gap next)."
+hypotheses = ["gap", "home-ceiling", "reshow-rank", "session-shape"]
