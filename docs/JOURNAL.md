@@ -62,3 +62,9 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - Laptop slept 19:47 to 20:57 UTC: ranker2 on the VM was the 19:34 model for 90 minutes. train2 restarted by itself.
 - Team: 11th of 42 over 60 min (+38.7), 9th over 3 h. Leaders team_06 +59, team_14 +57, team_03 +56 (one model, 2.19% on all traffic).
 - 14 Nov 21:38 UTC · blend1 (rank fusion of ranker2 and rules5) on half of ordinary and new-shopper traffic through the operator queue. Offline: top 10 +3.4 ordinary, new shoppers top 1 +3.1, ordinary top 1 -2.2. Operator now rematches tested candidates when the queue is empty, promotion bar z 1.8.
+
+## 14 Nov 22:10 UTC
+
+- **Public names of variants.** A variant or ablation of a model now shows as the model's public word plus a capital letter (`strategy.VARIANT`): `blend1` is `shaleB`, was `m5c9e7`. The evaluation adds up an arm seen under two labels, so the running trial is not split. Router restart at 22:07 cost 72 fallback answers.
+- **Drift test (H-drift): no change to training.** Product, brand and phrase rates do not drift today or over 59 days. The only moving part is the 2-hour subcategory bursts. Retraining faster than 20 minutes, a recent window only, and recency weights all tie or lose. A model 60 minutes old ties.
+- **Per-request SQL (H-sql-neighbours) started.** A session-neighbour query takes about 300 ms, with some runs over 1 s, so it needs a 600 ms timeout and a fallback.

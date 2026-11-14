@@ -61,9 +61,10 @@ def table(state):
     return np.array(X, dtype=float), np.array(y, dtype=int), np.array(b, dtype=int), np.array(t), np.array(g)
 
 
-def fit_buy(X, b):
+def fit_buy(X, b, w=None):
+    """w: optional sample weights (eda/drift recency tests); None fits as always."""
     small = len(b) < 1500
-    return lgb.train(SMALL if small else PARAMS, lgb.Dataset(X, b, feature_name=FEATURES), num_boost_round=100 if small else 300)
+    return lgb.train(SMALL if small else PARAMS, lgb.Dataset(X, b, weight=w, feature_name=FEATURES), num_boost_round=100 if small else 300)
 
 
 def ranked(score, b, g) -> tuple[float, float, int]:
