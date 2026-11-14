@@ -165,7 +165,8 @@ def projected(s: dict, now: dict | None) -> None:
             conv += share * p
             var += share ** 2 * se(p, n)[0] ** 2 if n else 0
         c = scored[x["team_id"]]
-        rows.append({"team": x["team_id"], "projected %": conv, "projected score": score(conv, base), "± score": 100 * math.sqrt(var) / evaluate.ORACLE_GAP,
+        best = max((w["conversion"] for w in window[x["team_id"]].values() if w["requests"] >= 500), default=float("nan"))
+        rows.append({"team": x["team_id"], "best model score": score(best, base), "projected %": conv, "projected score": score(conv, base), "± score": 100 * math.sqrt(var) / evaluate.ORACLE_GAP,
                      "as scored %": c, "as scored score": score(c, base), "difference": score(conv, base) - score(c, base),
                      "models now": len(vs), "largest model now %": 100 * max(v["requests"] for v in vs) / total, "on time %": x.get("on_time", float("nan"))})
     if not rows:
@@ -190,14 +191,16 @@ def projected(s: dict, now: dict | None) -> None:
     st.altair_chart(style(chart.properties(height=16 * len(t) + 50, title=head)), width="stretch")
     number = lambda f: st.column_config.NumberColumn(format=f)
     mark = lambda row: [f"background-color: rgba(86,180,233,.22); font-weight: 650" if row.team == rt.TEAM else ""] * len(row)
-    cols = ["rank", "team", "projected %", "projected score", "± score", "as scored %", "as scored score", "difference", "models now", "largest model now %", "on time %"]
+    cols = ["rank", "team", "projected %", "projected score", "± score", "best model score", "as scored %", "as scored score", "difference", "models now", "largest model now %", "on time %"]
     st.dataframe(t[cols].style.apply(mark, axis=1), hide_index=True, width="stretch",
                  column_config={"projected %": number("%.2f%%"), "projected score": number("%+.1f"), "± score": number("%.1f"), "as scored %": number("%.2f%%"),
-                                "as scored score": number("%+.1f"), "difference": number("%+.1f"), "largest model now %": number("%.0f%%"), "on time %": number("%.0f%%")})
+                                "as scored score": number("%+.1f"), "best model score": number("%+.1f"), "difference": number("%+.1f"), "largest model now %": number("%.0f%%"), "on time %": number("%.0f%%")})
     st.caption("The traffic split is each team's requests per model in the last 15 minutes; each model's conversion comes from the selected window "
                "(from the last 15 minutes if the model is not in it), and the projection is the split times those conversions, with ± one standard error. "
                "Requests no listed model answered (mostly late answers, see on time %, which is for the last 15 minutes) count as one more row, "
                "with the conversion left over from the team's total in the window. "
+               "Best model score is the team's highest-converting model with at least 500 requests in the window: an upper bound, because a model may answer "
+               "only one kind of request (ours for new shoppers converts 2.7%, our home-page one 0.5%) and the best of several noisy numbers is flattered by luck. "
                "A model started in the last minutes has a noisy conversion, and teams may still change their configuration before the final.")
 
     st.markdown("### Us, if we froze the best arm per kind of request")
