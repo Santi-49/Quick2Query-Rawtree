@@ -74,6 +74,7 @@ shoppers. They give a ratio, not a factor: top category ×4.4 over "other".
 - About half the factors move more than 25% between halves, so a clean round-number formula is not supported. What
   does hold: the slot curve (≈ 1/log2(k+1) on clicks), main category ×2, and the cart effect, which exists only for
   high-cart shoppers (×2.5) and is nil otherwise (×1.03).
+- linear1 runs (shadow timing on 200 logged requests: median 1.6 ms, p95 3.1 ms, ranker2 8.5 ms), but it should not get traffic.
 - Our own earlier click shows a click lift of ×1.17 (stable) and no purchase lift: too few rows (16 clicks).
 
 ## Next

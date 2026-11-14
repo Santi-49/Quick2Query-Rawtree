@@ -4,5 +4,5 @@ explore_share = 0.02
 salt = "q2q-1"
 
 [routes]                 # cold requests get their own arms; a list splits the shoppers evenly; empty = as above
-no_views = ["cold2"]   # no recent views: the home page
+no_views = ["cold2", "ranker2"]   # no recent views: the home page
 new_shopper = []                 # new shopper with recent views
