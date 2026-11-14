@@ -14,6 +14,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
+import requests
 import streamlit as st
 
 from q2q import evaluate, rt, serve, strategy
@@ -131,6 +132,29 @@ def whole_run() -> pd.DataFrame:
         except Exception:
             pass
     return _per_route(rows)
+
+
+_states: dict[int, dict] = {}    # last good per-model reading per window, shown when the endpoint fails
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _state(minutes: int) -> dict:
+    to = math.floor(time.time() / 300) * 300
+    r = requests.get(evaluate.STATE_URL, params={"by": "model", "from": to - 60 * minutes, "to": to}, timeout=20)
+    r.raise_for_status()
+    s = r.json()
+    if not s.get("teams"):
+        raise ValueError("no teams in the answer")
+    return s
+
+
+def state(minutes: int) -> tuple[dict | None, str]:
+    """The raw per-model leaderboard of the last `minutes`, every team; on failure the last good reading and the error."""
+    try:
+        _states[minutes] = _state(minutes)
+        return _states[minutes], ""
+    except Exception as e:
+        return _states.get(minutes), str(e) or type(e).__name__
 
 
 def live() -> pd.DataFrame:

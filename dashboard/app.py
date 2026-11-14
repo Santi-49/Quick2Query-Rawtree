@@ -3,6 +3,7 @@
     uv run --group dashboard streamlit run dashboard/app.py
 
 Now                       what is running: arms per kind of request, their traffic and live scores (board.py)
+Leaderboard               our models per kind of request and every team, from the per-model leaderboard (leaderboard.py)
 Strategies                cards: tested, testing now, up next (board.py)
 Hypotheses and knowledge  what we know about the simulator (knowledge.toml) and the hypotheses behind it
 Plan and backlog          the next windows, the ideas not built yet, the journal of decisions
@@ -19,6 +20,7 @@ import streamlit as st
 
 import board
 import data
+import leaderboard
 import ui
 from q2q import evaluate, rt
 
@@ -183,7 +185,7 @@ def safe(tab, body) -> None:
 
 
 header()
-tabs = st.tabs(["Now", "Strategies", "Hypotheses and knowledge", "Plan and backlog", "Raw data"])
-for tab, body in zip(tabs, (board.now, board.strategies, learned, plan, raw)):
+tabs = st.tabs(["Now", "Leaderboard", "Strategies", "Hypotheses and knowledge", "Plan and backlog", "Raw data"])
+for tab, body in zip(tabs, (board.now, leaderboard.leaderboard, board.strategies, learned, plan, raw)):
     safe(tab, body)
 board.show_pending()
