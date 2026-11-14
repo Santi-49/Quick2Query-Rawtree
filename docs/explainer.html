@@ -85,7 +85,7 @@ svg .end{text-anchor:end}
 
 <header>
 <h1>quick2query · what we built, in plain words</h1>
-<p class="lede">A recommender for a simulated online shop, explained in ten pictures. No code needed to follow it.</p>
+<p class="lede">A recommender for a simulated online shop, explained in twelve short sections with pictures. No code needed to follow it.</p>
 
 <nav class="toc" aria-label="Contents">
 <h2>Contents</h2>
@@ -95,7 +95,9 @@ svg .end{text-anchor:end}
 <li><a href="#pieces">The pieces</a></li>
 <li><a href="#answer">How one answer is made</a></li>
 <li><a href="#session">What the shopper's session tells us</a></li>
-<li><a href="#blocks">How we know what works</a></li>
+<li><a href="#kinds">Three kinds of request</a></li>
+<li><a href="#compare">How we know what works</a></li>
+<li><a href="#ranker">The model that learns from our feedback</a></li>
 <li><a href="#explore">Why a little traffic is random</a></li>
 <li><a href="#prior">History is a prior, live is the truth</a></li>
 <li><a href="#never">What must never happen</a></li>
@@ -194,7 +196,7 @@ svg .end{text-anchor:end}
 <section id="idea">
 <h2><span class="n">2</span>The idea: ask the simulator questions</h2>
 <p>We do not try to copy the hidden model. We ask it questions.</p>
-<p>We look at the data and write down what seems to matter. We turn each belief into a hypothesis: one sentence that can be proven wrong, and the numbers that would prove it. We build a strategy from the beliefs that survived, and let strategies compete on live traffic, ten minutes each.</p>
+<p>We look at the data and write down what seems to matter. We turn each belief into a hypothesis: one sentence that can be proven wrong, and the numbers that would prove it. We build a strategy from the beliefs that survived, and let strategies compete on live traffic, side by side, each on its own slice of shoppers.</p>
 <p>Everything we learn goes into one page, <code>docs/SIMULATOR.md</code>. Strategies are built from that page, so every line of a strategy has a reason we can point to.</p>
 <figure>
 <svg viewBox="0 0 480 486" role="img" aria-label="A loop of five steps: look at the data in eda, write a hypothesis in docs/hypotheses and sql/hypotheses, build a strategy in src/q2q/strategies, test it live through arms.toml, and write down what we learned in docs/SIMULATOR.md. Then the loop starts again.">
@@ -229,12 +231,12 @@ svg .end{text-anchor:end}
 <section id="pieces">
 <h2><span class="n">3</span>The pieces</h2>
 <p><strong>The router</strong> is the only program that answers shoppers. Every fraction of a second it reads the new requests, decides which strategy answers each one, checks the answer and sends it. <strong>The state</strong> is what the router knows right now: the catalogue, what is out of stock, what is trending in the last 15 minutes, and what each shopper bought and viewed.</p>
-<p><strong>The guard</strong> removes anything out of stock or repeated and fills the gaps with best sellers, so a broken experiment cannot produce an invalid answer. <strong><code>arms.toml</code></strong> is the one switch: which strategy owns which 10-minute block, and how many shoppers go to the explore arm. <strong>RawTree</strong> is the memory.</p>
+<p><strong>The guard</strong> removes anything out of stock or repeated and fills the gaps with best sellers, so a broken experiment cannot produce an invalid answer. <strong><code>arms.toml</code></strong> is the one switch: which strategies share the shoppers for each kind of request, and how many shoppers go to the explore arm. <strong>The trainer</strong> re-fits our learned model, the <code>ranker</code>, on the outcomes of our own answers every 20 minutes. <strong>RawTree</strong> is the memory.</p>
 <figure>
-<svg viewBox="0 0 480 760" role="img" aria-label="Architecture. Shoppers create requests and events; the shop publishes catalogue updates. The router builds its state from events and catalogue updates, chooses an arm for each request, lets the strategy pick 10 products and passes them through the guard. Answers go to team_01.submissions, the simulator scores them into team_01.feedback and the leaderboard, those become block readings, the readings decide arms.toml, and arms.toml steers the router. All tables live in RawTree, the shared memory.">
+<svg viewBox="0 0 480 856" role="img" aria-label="Architecture. Shoppers create requests and events; the shop publishes catalogue updates. The router builds its state from events and catalogue updates, chooses an arm for each request, lets the strategy pick 10 products and passes them through the guard. Answers go to team_01.submissions. The simulator scores them into the leaderboard and into team_01.feedback. The leaderboard gives one reading per model, the readings decide arms.toml, and arms.toml steers the router. The trainer reads the feedback every 20 minutes and writes a new ranker model file, which the router loads. All tables live in RawTree, the shared memory.">
 <defs><marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="f-line"/></marker></defs>
 <!-- RawTree underlay -->
-<rect x="6" y="74" width="468" height="676" rx="14" class="f-tint s-line w1 dash"/>
+<rect x="6" y="74" width="468" height="772" rx="14" class="f-tint s-line w1 dash"/>
 <!-- top -->
 <rect x="20" y="10" width="285" height="46" rx="8" class="f-paper s-fg w2"/>
 <text x="162" y="40" class="mid b">shoppers</text>
@@ -287,33 +289,42 @@ svg .end{text-anchor:end}
 <line x1="240" y1="490" x2="240" y2="526" class="s-line w2" marker-end="url(#m3)"/>
 <line x1="290" y1="490" x2="372" y2="528" class="s-line w2" marker-end="url(#m3)"/>
 <g class="f-paper s-fg w2">
-<path d="M175 538 a65 8 0 0 1 130 0 v54 a65 8 0 0 1 -130 0 Z"/><path d="M175 538 a65 8 0 0 0 130 0" class="f-none"/>
+<path d="M330 538 a65 8 0 0 1 130 0 v54 a65 8 0 0 1 -130 0 Z"/><path d="M330 538 a65 8 0 0 0 130 0" class="f-none"/>
 </g>
-<text x="240" y="568" class="mid sm">team_01.</text><text x="240" y="590" class="mid sm">feedback</text>
-<rect x="330" y="530" width="130" height="70" rx="8" class="f-paper s-fg w2"/>
-<text x="395" y="561" class="mid b">leaderboard</text><text x="395" y="585" class="mid sm mu">public</text>
+<text x="395" y="568" class="mid sm">team_01.</text><text x="395" y="590" class="mid sm">feedback</text>
+<rect x="175" y="530" width="130" height="70" rx="8" class="f-paper s-fg w2"/>
+<text x="240" y="561" class="mid b">leaderboard</text><text x="240" y="585" class="mid sm mu">public</text>
 <rect x="20" y="530" width="130" height="70" rx="8" class="f-paper s-fg w2"/>
-<text x="85" y="561" class="mid b">block</text><text x="85" y="585" class="mid b">readings</text>
+<text x="85" y="561" class="mid b">per-model</text><text x="85" y="585" class="mid b">readings</text>
 <line x1="173" y1="565" x2="152" y2="565" class="s-line w2" marker-end="url(#m3)"/>
-<path d="M395 600 V620 H85 V604" class="f-none s-line w2" marker-end="url(#m3)"/>
 <line x1="85" y1="530" x2="85" y2="494" class="s-line w2" marker-end="url(#m3)"/>
+<!-- row 4: the trainer -->
+<line x1="395" y1="600" x2="395" y2="636" class="s-line w2" marker-end="url(#m3)"/>
+<rect x="330" y="640" width="130" height="70" rx="8" class="f-paper s-fg w2"/>
+<text x="395" y="671" class="mid b">trainer</text><text x="395" y="695" class="mid sm mu">every 20 min</text>
+<line x1="328" y1="675" x2="308" y2="675" class="s-line w2" marker-end="url(#m3)"/>
+<rect x="175" y="640" width="130" height="70" rx="8" class="f-acs s-ac w2"/>
+<text x="240" y="671" class="mid b">ranker</text><text x="240" y="695" class="mid sm">model file</text>
+<line x1="173" y1="675" x2="152" y2="675" class="s-line w2" marker-end="url(#m3)"/>
+<text x="85" y="669" class="mid sm mu">the router</text><text x="85" y="691" class="mid sm mu">loads it</text>
 <!-- RawTree label -->
-<text x="24" y="664" class="lg">RawTree · the shared memory</text>
-<text x="24" y="690" class="sm">Every cylinder is a table in RawTree.</text>
-<text x="24" y="712" class="sm">It also keeps the lease, leaderboard</text>
-<text x="24" y="734" class="sm">readings, block results and explore logs.</text>
+<text x="24" y="760" class="lg">RawTree · the shared memory</text>
+<text x="24" y="786" class="sm">Every cylinder is a table in RawTree.</text>
+<text x="24" y="808" class="sm">It also keeps the lease, leaderboard</text>
+<text x="24" y="830" class="sm">readings and explore logs.</text>
 </svg>
-<figcaption>Figure 3. One request's path, top to bottom, and the loop back from the leaderboard to the switch. Changing <code>arms.toml</code> takes effect within a second, with no restart.</figcaption>
+<figcaption>Figure 3. One request's path, top to bottom, and two loops back: from the leaderboard to the switch, and from our feedback to the <code>ranker</code> model. Changing <code>arms.toml</code> or the model file takes effect within a second, with no restart.</figcaption>
 </figure>
 </section>
 
 <!-- 4 -->
 <section id="answer">
 <h2><span class="n">4</span>How one answer is made</h2>
-<p>A shopper on a product page has looked at two smartwatches. The <code>rules</code> strategy collects candidates and gives each one a score: the appeal of the product, times how close it is to what the shopper is doing now, times whether they looked at it before, times how much they like its category, times how much their device and region like it, times a trend boost, times a price-cut boost.</p>
-<p>Products the shopper already bought are removed. The 10 highest scores are the answer, best first. Each multiplier is an effect size we measured: the product being looked at converts about 35 times better than one from another category, so its multiplier is 35.</p>
+<p>A shopper on a product page has looked at two smartwatches. The <code>rules2</code> strategy collects candidates and gives each one a score: the appeal of the product, times how close it is to what the shopper is doing now, times whether they looked at it before, times how much they like its category, times how much their device and region like it, times a trend boost, times a price-cut boost.</p>
+<p>Products the shopper already bought are removed. The 10 highest scores are the answer, best first. Each multiplier is an effect size we measured: a product from the shopper's recent views sells about 11 times better than one from another category, so its multiplier is 12.</p>
+<p>The first version, <code>rules</code>, took its weights from the shop's old logs. We measured them again on live feedback and they changed, because history had them wrong by 3 to 10 times: a recent view was worth 35 and is now 12, and the favourite category counts ten times more than before. A past view and the session do not multiply: the larger one counts, times 1.4.</p>
 <figure>
-<svg viewBox="0 0 480 770" role="img" aria-label="Worked example with illustrative values for an Android shopper in Andalucía viewing Smartwatch A after Smartwatch B. Each candidate's score is the product of seven multipliers. Smartwatch A scores 224, Smartwatch B 166, Headphones D 138 and Smartwatch C 69, so that is the order. Smartwatch E was already bought and is removed.">
+<svg viewBox="0 0 480 770" role="img" aria-label="Worked example with illustrative values for a returning Android shopper in Andalucía viewing Smartwatch A after Smartwatch B. Each candidate's score is the product of seven multipliers. Smartwatch B scores 273, Smartwatch A 210, Headphones D 198 and Smartwatch C 142, so that is the order. Smartwatch E was already bought and is removed.">
 <text x="10" y="30" class="b it">illustrative values</text>
 <text x="10" y="56" class="sm mu">score of a candidate</text>
 <text x="10" y="78" class="sm mu">= product of its row</text>
@@ -333,20 +344,20 @@ svg .end{text-anchor:end}
 </g>
 <!-- row A -->
 <text x="10" y="214" class="b">Smartwatch A</text><text x="10" y="236" class="sm mu">on screen now</text>
-<text x="182" y="224" class="mid">1.0</text><text x="226" y="224" class="mid b">35</text><text x="270" y="224" class="mid mu">1</text>
-<text x="314" y="224" class="mid b">1.6</text><text x="358" y="224" class="mid b">4</text><text x="402" y="224" class="mid mu">1</text><text x="446" y="224" class="mid mu">1</text>
+<text x="182" y="224" class="mid">1.0</text><text x="226" y="224" class="mid b">12</text><text x="270" y="224" class="mid mu">1</text>
+<text x="314" y="224" class="mid b">7</text><text x="358" y="224" class="mid b">2.5</text><text x="402" y="224" class="mid mu">1</text><text x="446" y="224" class="mid mu">1</text>
 <!-- row B -->
 <text x="10" y="268" class="b">Smartwatch B</text><text x="10" y="290" class="sm mu">viewed just before</text>
-<text x="182" y="278" class="mid">1.3</text><text x="226" y="278" class="mid b">20</text><text x="270" y="278" class="mid mu">1</text>
-<text x="314" y="278" class="mid b">1.6</text><text x="358" y="278" class="mid b">4</text><text x="402" y="278" class="mid mu">1</text><text x="446" y="278" class="mid mu">1</text>
+<text x="182" y="278" class="mid">1.3</text><text x="226" y="278" class="mid b">12</text><text x="270" y="278" class="mid mu">1</text>
+<text x="314" y="278" class="mid b">7</text><text x="358" y="278" class="mid b">2.5</text><text x="402" y="278" class="mid mu">1</text><text x="446" y="278" class="mid mu">1</text>
 <!-- row C -->
 <text x="10" y="322" class="b">Smartwatch C</text><text x="10" y="344" class="sm mu">same subcategory</text>
-<text x="182" y="332" class="mid">1.5</text><text x="226" y="332" class="mid b">6</text><text x="270" y="332" class="mid mu">1</text>
-<text x="314" y="332" class="mid b">1.6</text><text x="358" y="332" class="mid b">4</text><text x="402" y="332" class="mid mu">1</text><text x="446" y="332" class="mid b">1.2</text>
+<text x="182" y="332" class="mid">1.5</text><text x="226" y="332" class="mid b">4.5</text><text x="270" y="332" class="mid mu">1</text>
+<text x="314" y="332" class="mid b">7</text><text x="358" y="332" class="mid b">2.5</text><text x="402" y="332" class="mid mu">1</text><text x="446" y="332" class="mid b">1.2</text>
 <!-- row D -->
 <text x="10" y="376" class="b">Headphones D</text><text x="10" y="398" class="sm mu">same category</text>
-<text x="182" y="386" class="mid">1.2</text><text x="226" y="386" class="mid b">4</text><text x="270" y="386" class="mid b">3</text>
-<text x="314" y="386" class="mid b">1.6</text><text x="358" y="386" class="mid b">4</text><text x="402" y="386" class="mid b">1.5</text><text x="446" y="386" class="mid mu">1</text>
+<text x="182" y="386" class="mid">1.2</text><text x="226" y="386" class="mid b">4.5</text><text x="270" y="386" class="mid b">1.4</text>
+<text x="314" y="386" class="mid b">7</text><text x="358" y="386" class="mid b">2.5</text><text x="402" y="386" class="mid b">1.5</text><text x="446" y="386" class="mid mu">1</text>
 <!-- row E: removed -->
 <text x="10" y="430" class="b mu">Smartwatch E</text><text x="10" y="452" class="sm mu">already bought</text>
 <text x="314" y="440" class="mid sm it">removed, never scored</text>
@@ -354,26 +365,26 @@ svg .end{text-anchor:end}
 <line x1="160" y1="434" x2="216" y2="434" class="s-line w2"/><line x1="412" y1="434" x2="468" y2="434" class="s-line w2"/>
 <!-- part B -->
 <text x="10" y="510" class="b">Score and final order</text>
-<text x="10" y="551" class="b">1</text><text x="32" y="551">Smartwatch A</text>
-<rect x="160" y="532" width="260" height="26" class="f-ac"/><text x="428" y="551" class="b">224</text>
-<text x="10" y="597" class="b">2</text><text x="32" y="597">Smartwatch B</text>
-<rect x="160" y="578" width="193" height="26" class="f-ac"/><text x="361" y="597" class="b">166</text>
+<text x="10" y="551" class="b">1</text><text x="32" y="551">Smartwatch B</text>
+<rect x="160" y="532" width="260" height="26" class="f-ac"/><text x="428" y="551" class="b">273</text>
+<text x="10" y="597" class="b">2</text><text x="32" y="597">Smartwatch A</text>
+<rect x="160" y="578" width="200" height="26" class="f-ac"/><text x="368" y="597" class="b">210</text>
 <text x="10" y="643" class="b">3</text><text x="32" y="643">Headphones D</text>
-<rect x="160" y="624" width="160" height="26" class="f-ac"/><text x="328" y="643" class="b">138</text>
+<rect x="160" y="624" width="189" height="26" class="f-ac"/><text x="357" y="643" class="b">198</text>
 <text x="10" y="689" class="b">4</text><text x="32" y="689">Smartwatch C</text>
-<rect x="160" y="670" width="80" height="26" class="f-ac"/><text x="248" y="689" class="b">69</text>
+<rect x="160" y="670" width="135" height="26" class="f-ac"/><text x="303" y="689" class="b">142</text>
 <text x="10" y="736" class="sm mu">Slots 5–10: the next best of the other</text>
 <text x="10" y="758" class="sm mu">candidates, the same way.</text>
 </svg>
-<figcaption>Figure 4. Illustrative values for an Android shopper in Andalucía. The session values (35, 20, 6, 4), the viewed-before step (3 for two earlier views) and the segment boost for electronics (4) are the constants in <code>rules.py</code> and <code>docs/SIMULATOR.md</code>; appeal, category share, trend and price cut are made up for the example. Bold numbers differ from 1.</figcaption>
+<figcaption>Figure 4. Illustrative values for a returning Android shopper in Andalucía. The session values (12 for any recent view, 4.5 for the same subcategory or category) and the 1.4 for a product also viewed on an earlier day are the constants in <code>rules2.py</code>. Favourite category is 1 + 20 × the shopper's share of views in it, here 30%, so 7. The segment boost for electronics is 4, halved in effect for a returning shopper, so 2.5. Appeal, share, trend and price cut are made up for the example. Both smartwatches are recent views with the same weight, so appeal puts B ahead of A. Bold numbers differ from 1.</figcaption>
 </figure>
 </section>
 
 <!-- 5 -->
 <section id="session">
 <h2><span class="n">5</span>What the shopper's session tells us</h2>
-<p>Our first answers were the same best-seller list for every shopper, so any difference in purchases comes from the shopper, not from the list. Measured on slots 1–3, the product the shopper just looked at converts about 35 times better than a product from another category.</p>
-<p>On product and category pages, 89% of what the best-seller list showed was from another category. That is the gap <code>rules</code> closes.</p>
+<p>Our first answers were the same best-seller list for every shopper, so any difference in purchases comes from the shopper, not from the list. Measured on slots 1–3, the product the shopper just looked at converts about 35 times better than a product from another category. That first reading rested on 91 impressions. With twenty times more data, and over all slots, the gap settled at about 11 times.</p>
+<p>On product and category pages, 89% of what the best-seller list showed was from another category. That is the gap our session strategies close: <code>rules2</code>, <code>rules4</code> and the <code>ranker</code>.</p>
 <figure>
 <svg viewBox="0 0 480 410" role="img" aria-label="Live purchase rate at slots 1 to 3 by how the shown product relates to the last viewed product: same product 4.4 percent, same subcategory 0.52 percent, same category 0.63 percent, other category 0.13 percent, home page with no views 0.06 percent.">
 <text x="10" y="22" class="sm mu">Shown product against the last viewed one</text>
@@ -395,58 +406,137 @@ svg .end{text-anchor:end}
 </section>
 
 <!-- 6 -->
-<section id="blocks">
-<h2><span class="n">6</span>How we know what works: 10-minute blocks</h2>
-<p>Clicks and purchases on our own answers are too rare to compare two strategies quickly: about 75 purchases an hour over all traffic.</p>
-<p>The leaderboard gives an exact number, but for the whole last hour. Two readings ten minutes apart differ only by the ten minutes that entered and the ten that left. Subtracting them gives our result for a single 10-minute block, and the same subtraction for the baseline team compares us on the very same shoppers.</p>
-<p>So strategies take turns. A challenger becomes champion after winning three pairs of blocks.</p>
+<section id="kinds">
+<h2><span class="n">6</span>Three kinds of request, each with its own strategies</h2>
+<p>Not every request is the same problem. An <strong>ordinary</strong> request comes from a returning shopper who looked at something in the last minutes: we know their history and their session. A <strong>new shopper with views</strong> has a session but no history. A request with <strong>no recent views</strong> is the home page: there is no session to read at all.</p>
+<p>The router looks at the request, decides which kind it is, and picks from the list of arms that <code>arms.toml</code> gives for that kind. A strategy that is good with a session can be poor without one, so each kind is tested and decided on its own.</p>
+<p>The home page was our leak. About 0.4% of those requests ended in a purchase, below the baseline's 0.7% over all requests. <code>cold2</code> targets it. It puts first the products the shopper once added to the cart and never bought, then what they viewed earlier today, then best sellers from their top category. Cart products made 16 of the 24 home purchases of returning shoppers.</p>
 <figure>
-<svg viewBox="0 0 480 530" role="img" aria-label="Two leaderboard readings ten minutes apart cover the same hour except one block that left and one block that entered, so their difference is the result of one 10-minute block. Below, blocks alternate between champion A and challenger B; in the illustrative values B beats A in three pairs in a row and becomes champion.">
-<defs><pattern id="hatch6" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" class="f-paper"/><line x1="0" y1="0" x2="0" y2="8" class="s-mu w2"/></pattern></defs>
-<text x="20" y="20" class="sm mu">each box = 10 minutes</text>
-<rect x="20" y="36" width="326" height="26" rx="6" class="f-acs s-ac w2"/>
-<text x="183" y="55" class="mid sm">reading at time t</text>
-<rect x="75" y="72" width="326" height="26" rx="6" class="f-acs s-ac w2"/>
-<text x="238" y="91" class="mid sm">reading at t + 10 min</text>
-<rect x="20" y="114" width="51" height="40" class="f-soft s-fg w2 dash"/>
-<rect x="75" y="114" width="51" height="40" class="f-paper s-fg w2"/>
-<rect x="130" y="114" width="51" height="40" class="f-paper s-fg w2"/>
-<rect x="185" y="114" width="51" height="40" class="f-paper s-fg w2"/>
-<rect x="240" y="114" width="51" height="40" class="f-paper s-fg w2"/>
-<rect x="295" y="114" width="51" height="40" class="f-paper s-fg w2"/>
-<rect x="350" y="114" width="51" height="40" class="f-ac"/>
-<rect x="405" y="114" width="51" height="40" class="f-none s-line w1 dash"/>
-<text x="45.5" y="140" class="mid sm">1</text><text x="100.5" y="140" class="mid sm">2</text><text x="155.5" y="140" class="mid sm">3</text>
-<text x="210.5" y="140" class="mid sm">4</text><text x="265.5" y="140" class="mid sm">5</text><text x="320.5" y="140" class="mid sm">6</text>
-<text x="375.5" y="140" class="mid sm b on">7</text><text x="430.5" y="140" class="mid sm mu">8</text>
-<text x="45.5" y="178" class="mid sm b">leaves</text>
-<text x="375.5" y="178" class="mid sm b">enters</text>
-<text x="240" y="218" class="mid">later reading − earlier reading</text>
-<text x="240" y="244" class="mid b">= block 7 − block 1</text>
-<text x="240" y="268" class="mid sm mu">block 1 is already known, so block 7 follows</text>
-<line x1="10" y1="290" x2="470" y2="290" class="s-line w1"/>
-<text x="20" y="324" class="b">Turns: champion and challenger</text>
-<rect x="20" y="340" width="22" height="22" class="f-ac"/><text x="50" y="357" class="sm">A = champion</text>
-<rect x="200" y="340" width="22" height="22" fill="url(#hatch6)" class="s-mu w1"/><text x="230" y="357" class="sm">B = challenger</text>
-<rect x="20" y="380" width="68" height="50" class="f-ac"/><text x="54" y="412" class="mid b on">A</text>
-<rect x="94" y="380" width="68" height="50" fill="url(#hatch6)" class="s-mu w2"/><rect x="114" y="393" width="28" height="26" class="f-paper"/><text x="128" y="412" class="mid b">B</text>
-<rect x="174" y="380" width="68" height="50" class="f-ac"/><text x="208" y="412" class="mid b on">A</text>
-<rect x="248" y="380" width="68" height="50" fill="url(#hatch6)" class="s-mu w2"/><rect x="268" y="393" width="28" height="26" class="f-paper"/><text x="282" y="412" class="mid b">B</text>
-<rect x="328" y="380" width="68" height="50" class="f-ac"/><text x="362" y="412" class="mid b on">A</text>
-<rect x="402" y="380" width="68" height="50" fill="url(#hatch6)" class="s-mu w2"/><rect x="422" y="393" width="28" height="26" class="f-paper"/><text x="436" y="412" class="mid b">B</text>
-<text x="54" y="456" class="mid">+19</text><text x="128" y="456" class="mid b">+23</text>
-<text x="208" y="456" class="mid">+21</text><text x="282" y="456" class="mid b">+24</text>
-<text x="362" y="456" class="mid">+18</text><text x="436" y="456" class="mid b">+22</text>
-<text x="20" y="484" class="sm mu">score points above the baseline (illustrative)</text>
-<text x="20" y="516" class="b">B wins three pairs: B becomes champion</text>
+<svg viewBox="0 0 480 566" role="img" aria-label="First, 5 percent of shoppers go to the explore arm. The rest are sorted into three kinds of request. Ordinary requests, from returning shoppers with recent views, are shared by ranker, rules2 and rules4, and about 1.3 to 1.5 percent of them end in a purchase. New shoppers with views are shared by the same three strategies, labelled with the suffix -n, at about 2.3 to 2.4 percent. Requests with no recent views, the home page, are shared by cold2 and rules2, labelled with the suffix -h, at about 0.4 percent.">
+<text x="10" y="24" class="b">First, 5% of shoppers go to explore</text>
+<text x="10" y="48" class="sm mu">The other 95% are sorted by kind of request:</text>
+<!-- ordinary -->
+<rect x="10" y="66" width="460" height="144" rx="10" class="f-paper s-fg w2"/>
+<text x="26" y="96" class="b">Ordinary</text><text x="454" y="96" class="end sm mu">no suffix</text>
+<text x="26" y="120" class="sm mu">returning shopper with recent views</text>
+<rect x="26" y="132" width="136" height="38" rx="6" class="f-ac"/><text x="94" y="157" class="mid mono b on">ranker</text>
+<rect x="172" y="132" width="136" height="38" rx="6" class="f-acs s-ac w2"/><text x="240" y="157" class="mid mono">rules2</text>
+<rect x="318" y="132" width="136" height="38" rx="6" class="f-acs s-ac w2"/><text x="386" y="157" class="mid mono">rules4</text>
+<text x="26" y="196" class="sm">about 1.3–1.5% end in a purchase</text>
+<!-- new shopper -->
+<rect x="10" y="222" width="460" height="144" rx="10" class="f-paper s-fg w2"/>
+<text x="26" y="252" class="b">New shopper with views</text><text x="454" y="252" class="end sm mu">suffix -n</text>
+<text x="26" y="276" class="sm mu">has a session, no history with us</text>
+<rect x="26" y="288" width="136" height="38" rx="6" class="f-ac"/><text x="94" y="313" class="mid mono b on">ranker</text>
+<rect x="172" y="288" width="136" height="38" rx="6" class="f-acs s-ac w2"/><text x="240" y="313" class="mid mono">rules2</text>
+<rect x="318" y="288" width="136" height="38" rx="6" class="f-acs s-ac w2"/><text x="386" y="313" class="mid mono">rules4</text>
+<text x="26" y="352" class="sm">about 2.3–2.4% end in a purchase</text>
+<!-- no views -->
+<rect x="10" y="378" width="460" height="144" rx="10" class="f-paper s-fg w2"/>
+<text x="26" y="408" class="b">No recent views</text><text x="454" y="408" class="end sm mu">suffix -h</text>
+<text x="26" y="432" class="sm mu">the home page, new or returning shopper</text>
+<rect x="26" y="444" width="209" height="38" rx="6" class="f-acs s-ac w2"/><text x="130.5" y="469" class="mid mono">cold2</text>
+<rect x="245" y="444" width="209" height="38" rx="6" class="f-acs s-ac w2"/><text x="349.5" y="469" class="mid mono">rules2</text>
+<text x="26" y="508" class="sm">about 0.4% end in a purchase: our leak</text>
+<text x="10" y="550" class="sm mu">Arms in one card share its shoppers evenly.</text>
 </svg>
-<figcaption>Figure 6. Top: two consecutive one-hour windows share five blocks. Bottom: alternating blocks, with made-up values, read against the baseline on the same shoppers. Measured noise floor: about 1 score point per block.</figcaption>
+<figcaption>Figure 6. The arms in <code>arms.toml</code> now. The dark box is the champion. New shoppers with views have no list of their own yet, so they get the same three arms as ordinary requests, read separately. The purchase rates are our readings of 14 November between 16:00 and 16:35 UTC.</figcaption>
 </figure>
 </section>
 
 <!-- 7 -->
+<section id="compare">
+<h2><span class="n">7</span>How we know what works: side by side</h2>
+<p>Clicks and purchases on our own answers are too rare to compare two strategies quickly: about 75 purchases an hour over all traffic. The leaderboard is sharper, because it scores the chance of a purchase and not the purchase itself.</p>
+<p>Since 15:50 UTC on Saturday the leaderboard scores each model version on its own, for any window from 15 minutes to 3 hours. So we split the shoppers. A hash of the user id puts each shopper in one slice, each slice is answered by one strategy, and each strategy appears as its own line on the leaderboard. The arms run at the same moment, so they see the same shop, the same trends and the same hour of the day.</p>
+<p>We compare only within the same kind of request. A strategy answering new shoppers will always look better than one answering the home page, whatever it does.</p>
+<p>The leaderboard is public, so our strategies appear under mineral names that mean nothing: <code>quartz</code> is the baseline, <code>mica</code> explore, <code>flint</code> <code>rules</code>, <code>slate</code> <code>rules2</code>, <code>basalt</code> <code>rules3</code>, <code>opal</code> <code>cold1</code>, <code>jasper</code> the <code>ranker</code>, <code>agate</code> <code>cold2</code> and <code>onyx</code> <code>rules4</code>. A suffix marks the kind of request: <code>-n</code> for new shoppers, <code>-h</code> for no recent views. Other teams learn nothing from the names.</p>
+<p>A challenger becomes champion when it is ahead in two 30-minute windows in a row, with about 1,000 requests per arm.</p>
+<p>Our first method was different. The leaderboard used to give one number for the whole last hour, so strategies took turns in 10-minute blocks and we subtracted two readings ten minutes apart to isolate one block. It worked, but each arm ran at a different time, half the traffic was spent on taking turns, and one reading carried about 1 score point of noise. The direct reading replaced it.</p>
+<figure>
+<svg viewBox="0 0 480 556" role="img" aria-label="Shoppers with an ordinary request are placed by a hash of their user id. The first 5 percent go to explore and the rest are cut into three equal slices, answered by ranker, the champion, rules2, the control, and rules4, the challenger. Each appears on the per-model leaderboard under a public name. For returning shoppers jasper, the ranker, reads 1.54 percent and slate, rules2, 1.29 percent; onyx, rules4, is in test. For new shoppers jasper-n reads 2.41 percent and slate-n 2.29 percent. Only rows of the same kind are compared.">
+<defs><marker id="m7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="f-line"/></marker></defs>
+<text x="10" y="20" class="sm mu">Shoppers with an ordinary request, placed by a</text>
+<text x="10" y="42" class="sm mu">hash of their user id. The first 5% explore.</text>
+<rect x="10" y="54" width="23" height="40" class="f-soft s-fg w1"/>
+<rect x="33" y="54" width="145" height="40" class="f-ac"/>
+<rect x="178" y="54" width="146" height="40" class="f-acs s-ac w1"/>
+<rect x="324" y="54" width="146" height="40" class="f-acs s-ac w1"/>
+<text x="105.5" y="80" class="mid sm b on">one third</text>
+<text x="251" y="80" class="mid sm">one third</text>
+<text x="397" y="80" class="mid sm">one third</text>
+<text x="21.5" y="114" class="mid sm mu">5%</text>
+<line x1="106" y1="94" x2="106" y2="124" class="s-line w2" marker-end="url(#m7)"/>
+<line x1="251" y1="94" x2="251" y2="124" class="s-line w2" marker-end="url(#m7)"/>
+<line x1="397" y1="94" x2="397" y2="124" class="s-line w2" marker-end="url(#m7)"/>
+<rect x="40" y="128" width="132" height="60" rx="8" class="f-paper s-fg w2"/>
+<text x="106" y="153" class="mid mono b">ranker</text><text x="106" y="177" class="mid sm mu">champion</text>
+<rect x="185" y="128" width="132" height="60" rx="8" class="f-paper s-fg w2"/>
+<text x="251" y="153" class="mid mono b">rules2</text><text x="251" y="177" class="mid sm mu">control</text>
+<rect x="331" y="128" width="132" height="60" rx="8" class="f-paper s-fg w2"/>
+<text x="397" y="153" class="mid mono b">rules4</text><text x="397" y="177" class="mid sm mu">challenger</text>
+<line x1="106" y1="188" x2="106" y2="222" class="s-line w2" marker-end="url(#m7)"/>
+<line x1="251" y1="188" x2="251" y2="222" class="s-line w2" marker-end="url(#m7)"/>
+<line x1="397" y1="188" x2="397" y2="222" class="s-line w2" marker-end="url(#m7)"/>
+<!-- leaderboard -->
+<rect x="10" y="226" width="460" height="240" rx="10" class="f-paper s-fg w2"/>
+<text x="26" y="256" class="b">Leaderboard, one line per model</text>
+<text x="26" y="284" class="sm mu">ordinary requests, returning shoppers</text>
+<text x="26" y="310" class="mono b">jasper</text><text x="140" y="310" class="sm mu">= ranker</text><text x="454" y="310" class="end b">1.54%</text>
+<text x="26" y="336" class="mono b">slate</text><text x="140" y="336" class="sm mu">= rules2</text><text x="454" y="336" class="end b">1.29%</text>
+<text x="26" y="362" class="mono b">onyx</text><text x="140" y="362" class="sm mu">= rules4</text><text x="454" y="362" class="end sm mu">in test</text>
+<line x1="26" y1="376" x2="454" y2="376" class="s-line w1"/>
+<text x="26" y="402" class="sm mu">new shoppers with views</text>
+<text x="26" y="428" class="mono b">jasper-n</text><text x="140" y="428" class="sm mu">= ranker</text><text x="454" y="428" class="end b">2.41%</text>
+<text x="26" y="454" class="mono b">slate-n</text><text x="140" y="454" class="sm mu">= rules2</text><text x="454" y="454" class="end b">2.29%</text>
+<text x="10" y="496" class="b">Compare rows of the same kind only.</text>
+<text x="10" y="520" class="sm mu">Promotion: ahead in two 30-minute windows</text>
+<text x="10" y="542" class="sm mu">in a row, with about 1,000 requests per arm.</text>
+</svg>
+<figcaption>Figure 7. One hash, simultaneous slices, one leaderboard line per slice. The percentages are the share of requests expected to end in a purchase, from the 30-minute readings behind the promotion of <code>ranker</code> at 16:35 UTC. <code>rules4</code> started then and has no reading yet.</figcaption>
+</figure>
+</section>
+
+<!-- 8 -->
+<section id="ranker">
+<h2><span class="n">8</span>The model that learns from our own feedback</h2>
+<p>The rule strategies use weights we measured by hand, one at a time. The <code>ranker</code> learns them all together. It is a standard learning method, gradient-boosted trees (LightGBM), trained on the outcomes of our own answers: every product we showed, and whether it was clicked.</p>
+<p>For each candidate it reads 21 inputs: the product's appeal, popularity and price, how it relates to the session, whether the shopper viewed it before, the shopper's share of views in its category, the segment, the page, the device. It predicts the chance of a click. We then multiply by the chance that a click becomes a purchase, which we measured live: 81% for a recent view, 27% for anything else.</p>
+<p>It is trained again every 20 minutes, so it follows the shop as the day goes on. The explore arm matters here. A model can only learn about products that were shown, and explore brings outcomes on products the champion never shows.</p>
+<p>The first model went live at 16:10 UTC on 601,187 impressions and 1,794 clicks. Tested on the newest fifth of the data, which it had not seen, it put a clicked product above an unclicked one 78% of the time, against 71% for the slot alone. At 16:35 UTC it became champion, after leading <code>rules2</code> in two 30-minute windows: 1.54% against 1.29% for returning shoppers and 2.41% against 2.29% for new shoppers.</p>
+<figure>
+<svg viewBox="0 0 480 504" role="img" aria-label="A loop of four steps. One, we answer shoppers with the champion, the challengers and 5 percent explore. Two, the outcomes come back: each product shown and the one clicked. Three, the trainer, LightGBM with 21 inputs, learns the chance of a click every 20 minutes. Four, the ranker scores candidates as the chance of a click, times the chance the click becomes a purchase, 81 percent for a recent view and 27 percent otherwise, times trend and price cut. Its answers become the next training data.">
+<defs><marker id="m8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="f-line"/></marker></defs>
+<rect x="70" y="20" width="395" height="72" rx="10" class="f-paper s-fg w2"/>
+<text x="88" y="50" class="b">1 · We answer shoppers</text><text x="450" y="50" class="end sm mu">live</text>
+<text x="88" y="78" class="sm">champion, challengers and 5% explore</text>
+<line x1="267" y1="92" x2="267" y2="110" class="s-line w2" marker-end="url(#m8)"/>
+<rect x="70" y="112" width="395" height="72" rx="10" class="f-paper s-fg w2"/>
+<text x="88" y="142" class="b">2 · The outcomes come back</text>
+<text x="88" y="170" class="sm">each product shown, and the one clicked</text>
+<line x1="267" y1="184" x2="267" y2="202" class="s-line w2" marker-end="url(#m8)"/>
+<rect x="70" y="204" width="395" height="72" rx="10" class="f-paper s-fg w2"/>
+<text x="88" y="234" class="b">3 · The trainer learns</text><text x="450" y="234" class="end sm mu">every 20 min</text>
+<text x="88" y="262" class="sm">LightGBM: 21 inputs → chance of a click</text>
+<line x1="267" y1="276" x2="267" y2="294" class="s-line w2" marker-end="url(#m8)"/>
+<rect x="70" y="296" width="395" height="140" rx="10" class="f-acs s-ac w2"/>
+<text x="88" y="326" class="b">4 · The ranker scores a product</text>
+<text x="88" y="354" class="sm">chance of a click</text>
+<text x="88" y="376" class="sm">× chance the click becomes a purchase</text>
+<text x="104" y="398" class="sm mu">81% recent view, 27% otherwise</text>
+<text x="88" y="420" class="sm">× trend × price cut</text>
+<path d="M70 366 H36 V56 H66" class="f-none s-line w2" marker-end="url(#m8)"/>
+<text x="26" y="211" class="mid sm mu" transform="rotate(-90 26 211)">next answers, next training data</text>
+<text x="10" y="468" class="sm">Explore brings outcomes on products</text>
+<text x="10" y="490" class="sm">the champion never shows.</text>
+</svg>
+<figcaption>Figure 8. The <code>ranker</code> loop, from <code>src/q2q/train.py</code> and <code>strategies/ranker.py</code>. Products the shopper already bought are never candidates. Known weakness of the first model: most of its training data came from best-seller lists, so it has seen few recent views shown again.</figcaption>
+</figure>
+</section>
+
+<!-- 9 -->
 <section id="explore">
-<h2><span class="n">7</span>Why a little traffic is random</h2>
+<h2><span class="n">9</span>Why a little traffic is random</h2>
 <p>The shop's old logs only show what the old carousel showed: popular products from one category. They cannot tell us what happens when we show a shopper something from another category, or a brand-new product.</p>
 <p>The explore arm shows a few shoppers products we would not normally pick, from six groups, and records the chance each product had of being shown. That is how we measure what the logs cannot.</p>
 <figure>
@@ -483,15 +573,17 @@ svg .end{text-anchor:end}
 <text x="10" y="440" class="sm b">The history log, by contrast: one category</text>
 <text x="10" y="462" class="sm b">per request, popular products only.</text>
 </svg>
-<figcaption>Figure 7. The six explore groups and their base chances in <code>explore.py</code>. The arm gets 3% of shoppers today (<code>explore_share</code> in <code>arms.toml</code>). In the history log the top 1,000 products took 96% of impressions.</figcaption>
+<figcaption>Figure 9. The six explore groups and their base chances in <code>explore.py</code>. The arm gets 5% of shoppers today (<code>explore_share</code> in <code>arms.toml</code>), raised from 3% when the <code>ranker</code> went live. In the history log the top 1,000 products took 96% of impressions.</figcaption>
 </figure>
 </section>
 
-<!-- 8 -->
+<!-- 10 -->
 <section id="prior">
-<h2><span class="n">8</span>History is a prior, live is the truth</h2>
+<h2><span class="n">10</span>History is a prior, live is the truth</h2>
 <p>The shop's 60-day history log and the live shop do not always agree. In the history log, a shopper is about 19 times more likely to buy a product they already bought. Live, an already-bought product does worse than one they never saw.</p>
-<p>So every effect from history is a prior, a starting guess, until we see it live. A model trained on history alone would push already-bought products. <code>rules</code> removes them. The live counts are still small, so a probe will confirm it.</p>
+<p>So every effect from history is a prior, a starting guess, until we see it live. A model trained on history alone would push already-bought products. Every strategy of ours removes them.</p>
+<p>On 14 November the organisers made this the clearest example. They clarified that the history log and the shop's live organic events were generated without the repeat-purchase penalty, so repeat purchases seen there mean nothing. Our own feedback follows the penalty: a shopper who already bought a product is much less likely to buy it again when we show it. Our live counts were small, and the clarification settled it.</p>
+<p>The same lesson came back with the weights of section 4, which history had wrong by 3 to 10 times, and with the <code>ranker</code>, which is trained on live feedback only.</p>
 <figure>
 <svg viewBox="0 0 480 430" role="img" aria-label="The same effect with opposite signs. History log: bought before 2.30 percent against never bought 0.12 percent. Live: bought before 0.024 percent against never seen 0.041 percent.">
 <text x="10" y="26" class="b">History log, 60 days</text>
@@ -505,19 +597,19 @@ svg .end{text-anchor:end}
 <text x="10" y="242" class="b">Live, our own answers</text>
 <text x="10" y="266" class="sm mu">purchase rate, returning shoppers, all slots</text>
 <text x="10" y="308">bought before</text>
-<rect x="150" y="290" width="158" height="26" class="f-ac"/><text x="316" y="309" class="b">0.024%</text>
+<rect x="150" y="290" width="146" height="26" class="f-ac"/><text x="304" y="309" class="b">0.024%</text>
 <text x="10" y="352">never seen</text>
-<rect x="150" y="334" width="270" height="26" class="f-ac"/><text x="428" y="353" class="b">0.041%</text>
+<rect x="150" y="334" width="250" height="26" class="f-ac"/><text x="408" y="353" class="b">0.041%</text>
 <text x="10" y="394" class="b">Already bought: about 0.6 times, lower</text>
 <text x="10" y="420" class="sm mu">each panel has its own scale</text>
 </svg>
-<figcaption>Figure 8. The no-rebuy hypothesis from <code>docs/SIMULATOR.md</code>: confirmed live, opposite in history. The live row rests on 12,486 impressions and only 3 purchases.</figcaption>
+<figcaption>Figure 10. The no-rebuy hypothesis from <code>docs/SIMULATOR.md</code>: confirmed live, opposite in history. The live row rests on 12,486 impressions and only 3 purchases; the organisers' clarification of 14 November confirms the direction.</figcaption>
 </figure>
 </section>
 
-<!-- 9 -->
+<!-- 11 -->
 <section id="never">
-<h2><span class="n">9</span>What must never happen</h2>
+<h2><span class="n">11</span>What must never happen</h2>
 <p>Two programs answering at once: a lease in RawTree stops a second router from starting. An invalid answer: the guard prevents it.</p>
 <p>A strategy that only works on the practice shoppers. The final has new shoppers, new products and new trends, so strategies score products by their attributes and shoppers by their session and segment. What we remember about a particular shopper is a bonus.</p>
 <figure>
@@ -546,14 +638,14 @@ svg .end{text-anchor:end}
 <text x="400" y="208" class="mid sm mu">products, trends</text>
 <text x="240" y="256" class="mid sm">Score attributes and sessions, not IDs.</text>
 </svg>
-<figcaption>Figure 9. Three rules that hold whatever strategy is running.</figcaption>
+<figcaption>Figure 11. Three rules that hold whatever strategy is running.</figcaption>
 </figure>
 </section>
 
-<!-- 10 -->
+<!-- 12 -->
 <section id="now">
-<h2><span class="n">10</span>Where we are</h2>
-<p>The dated decisions from <code>docs/JOURNAL.md</code>, Saturday 14 November, times in UTC. Today <code>rules</code> is champion and 3% of shoppers go to the explore arm.</p>
+<h2><span class="n">12</span>Where we are</h2>
+<p>The dated decisions from <code>docs/JOURNAL.md</code>, Saturday 14 November, times in UTC. Today <code>ranker</code> is champion and 5% of shoppers go to the explore arm. Requests with recent views are shared in thirds by <code>ranker</code>, <code>rules2</code> and <code>rules4</code>. Requests with no recent views are shared in halves by <code>cold2</code> and <code>rules2</code>.</p>
 <table>
 <thead><tr><th scope="col">Time</th><th scope="col">What happened</th></tr></thead>
 <tbody>
@@ -562,6 +654,19 @@ svg .end{text-anchor:end}
 <tr><td class="t">13:28</td><td><code>rules</code> on alternate 10-minute blocks against <code>baseline</code>.</td></tr>
 <tr><td class="t">13:36</td><td><strong><code>rules</code> promoted to champion after 8 minutes, not three block pairs.</strong> Leaderboard: us 0.777 against baseline 0.707 over the hour with only 7 minutes of <code>rules</code> in it, about +7.6 expected purchases in 1,260 requests. That puts <code>rules</code> near 1.3% conversion (score about 20), against a noise floor of 0.5 purchases. From now on blocks alternate only between champion and a challenger.</td></tr>
 <tr><td class="t">13:36</td><td>Reference 2.01%, best team 1.44%. The leaderboard refreshes every minute since 12:46.</td></tr>
+<tr><td class="t">13:43</td><td><strong>Live feedback contradicts three weights taken from history.</strong> Recent views are worth about 11 times, not 35. The favourite category is worth far more than assumed. A past view is a flat 3. Challenger <code>rules2</code> carries the live values.</td></tr>
+<tr><td class="t">14:20–15:04</td><td>Outage, 44 minutes on the fallback: the laptop went into standby. Router and logger resumed alone on wake.</td></tr>
+<tr><td class="t">15:08</td><td><strong><code>rules2</code> promoted to champion</strong> on two block pairs: mean +24.8 score points against +16.5 for <code>rules</code>. Challenger <code>rules3</code> starts, with a steeper favourite-category effect.</td></tr>
+<tr><td class="t">15:15</td><td>Strategy names are no longer public: the leaderboard shows every team's model version, so ours became codes.</td></tr>
+<tr><td class="t">15:40</td><td>Requests without recent views and new shoppers get their own arms. First home strategy <code>cold1</code>. <code>rules3</code> dropped, about 6 points behind <code>rules2</code>.</td></tr>
+<tr><td class="t">15:50</td><td><strong>The leaderboard now scores each model directly</strong>, for any window from 15 minutes to 3 hours. Arms now split shoppers by a hash, at the same time, instead of taking turns in 10-minute blocks. Direct reading, last hour: <code>rules2</code> about 1.7%, <code>rules</code> 0.87%, baseline 0.74%, reference 2.13%.</td></tr>
+<tr><td class="t">15:55</td><td>Public model names are minerals.</td></tr>
+<tr><td class="t">16:10</td><td><strong>First trained model live: <code>ranker</code></strong>, on 601,187 live impressions with 1,794 clicks, on 25% of ordinary requests, retrained every 20 minutes. Explore raised from 3% to 5% to feed it. Several challengers now run at once.</td></tr>
+<tr><td class="t">16:30</td><td>Practice traffic goes to learning, not to the champion: the champion keeps one equal slice as a control. <code>ranker</code> raised to 50% of ordinary requests.</td></tr>
+<tr><td class="t">16:35</td><td><strong><code>ranker</code> promoted to champion.</strong> It led <code>rules2</code> in two 30-minute windows: 1.54% against 1.29% for returning shoppers, 2.41% against 2.29% for new shoppers. <code>rules2</code> stays as the control arm.</td></tr>
+<tr><td class="t">16:35</td><td><strong>Home page: the signal is the cart, not the view.</strong> Products added to the cart and never bought made 16 of 24 home purchases of returning shoppers. <code>cold2</code> uses carts and today's views and replaces <code>cold1</code> on half of home requests.</td></tr>
+<tr><td class="t">16:35</td><td><code>rules4</code> in test on a third of ordinary requests: the first recent view leads, and the session's category is the one with most views. Category pages are not a leak: 2.02% against 1.85% for product pages.</td></tr>
+<tr><td class="t">16:35</td><td>Wide-feature study, interim: 185 inputs instead of 21 rank clicks and purchases better on live data. A model trained on history does not transfer to live purchases.</td></tr>
 </tbody>
 </table>
 </section>
