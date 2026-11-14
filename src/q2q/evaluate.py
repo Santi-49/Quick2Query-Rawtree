@@ -60,15 +60,31 @@ def purchases(row: dict) -> float:
     return row["conv"] * row["reqs"] / 100
 
 
-def lifts(d: dict[int, float], start_slot: int, end_slot: int) -> dict[int, float | None]:
-    """L per slot in (start_slot, end_slot] from D per slot; None where a needed refresh is missing."""
+def lifts(d: dict[int, float], start_slot: int, end_slot: int, weight: dict[int, float] | None = None) -> dict[int, float | None]:
+    """L per slot in (start_slot, end_slot] from D per slot; None where a needed refresh is missing.
+
+    With `weight` (our answered requests per slot), a run of slots with missing refreshes is filled:
+    the run's total lift is known from the refreshes around it and is shared out by weight.
+    A slot where we answered nothing gets 0, because the fallback shows the baseline list."""
     out: dict[int, float | None] = {}
-    for s in range(start_slot + 1, end_slot + 1):
-        prev = 0.0 if s - HOUR <= start_slot else out[s - HOUR]
-        if s not in d or s - 1 not in d or prev is None:
-            out[s] = None
+    prev = lambda s: 0.0 if s - HOUR <= start_slot else out.get(s - HOUR)
+    s = start_slot + 1
+    while s <= end_slot:
+        if s in d and s - 1 in d:
+            out[s] = None if prev(s) is None else d[s] - d[s - 1] + prev(s)
+            s += 1
+            continue
+        b = s
+        while b <= end_slot and b not in d:
+            b += 1
+        run = list(range(s, min(b, end_slot) + 1))
+        total = sum(weight.get(x, 0) for x in run) if weight else 0
+        if b > end_slot or s - 1 not in d or not total or any(prev(x) is None for x in run):
+            out.update({x: None for x in run})
         else:
-            out[s] = d[s] - d[s - 1] + prev
+            gain = d[b] - d[s - 1] + sum(prev(x) for x in run)
+            out.update({x: gain * weight.get(x, 0) / total for x in run})
+        s = run[-1] + 1
     return out
 
 
@@ -92,8 +108,8 @@ def blocks(start: str = START) -> list[dict]:
     if not later:
         return []
     d = {s: purchases(t[rt.TEAM]) - purchases(t["baseline"]) for s, t in refreshes.items()}
-    lift = lifts(d, start_slot, max(later))
     stats = {r["slot"]: r for r in _sql("blocks", since)}
+    lift = lifts(d, start_slot, max(later), {s: r.get("answered", 0) for s, r in stats.items()})
     arms = defaultdict(Counter)
     for r in _sql("arms", since):
         arms[r["slot"]][r["model_version"]] += r["n"]

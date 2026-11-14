@@ -27,22 +27,12 @@ A recent view converts at 81% of its clicks (17 of 21), against 27% for other pr
 | viewed 2, not bought | 10,520 | 4,814 | 49 | 8 | 2.9 | 1.8 (1.3–2.7) |
 | viewed 1, not bought | 30,248 | 13,806 | 129 | 39 | 2.7 | 3.1 (2.6–3.8) |
 | never seen | 200,026 | 89,690 | 313 | 81 | 1 | 1 |
-## 3 · Favourite category (returning; share of history views in the shown category; reference = share ≤ 0.1 in the same row group). As large outside the session category as inside it, so not the session effect in disguise; it overlaps with viewed-before, since viewed products sit in favourite categories
-| session | share | imps | clicks | buys | click× (68%) | × |
-|---|---|---|---|---|---|---|
-| no views | ≤0.1 | 29,015 | 16 | 3 | 1 | 1 |
-| no views | 0.1–0.3 | 18,109 | 31 | 1 | 3.0 (2.2–4.1) | 0.5 † |
-| no views | 0.3–0.6 | 4,845 | 22 | 3 | 7.7 (5.5–10.7) | 5.6 † |
-| no views † | 0.6+ | 601 | 5 | 3 | 12.9 (7.8–21.6) | 41 |
-| views, other category | ≤0.1 | 110,270 | 71 | 11 | 1 | 1 |
-| views, other category | 0.1–0.3 | 54,934 | 145 | 26 | 4.0 (3.5–4.6) | 4.6 |
-| views, other category | 0.3–0.6 | 8,910 | 59 | 22 | 9.7 (8.1–11.5) | 23 |
-| views, other category † | 0.6+ | 766 | 13 | 6 | 22 (17–30) | 67 |
-| views, viewed category | ≤0.1 † | 10,991 | 15 | 3 | 1 | 1 |
-| views, viewed category | 0.1–0.3 | 19,444 | 77 | 19 | 2.8 (2.1–3.7) | 3.5 |
-| views, viewed category | 0.3–0.6 | 8,702 | 68 | 33 | 5.4 (4.0–7.1) | 13 |
-| views, viewed category | 0.6+ | 1,773 | 32 | 13 | 11.3 (8.3–15.5) | 23 |
-
+## 3 · Favourite category (returning; share of history views in the shown category; clicks and click× (68%) against share ≤ 0.1 in the same row). As large outside the session category as inside, so not the session effect in disguise; overlaps with viewed-before
+| session | ≤0.1 (ref) | 0.1–0.3 | 0.3–0.6 | 0.6+ | buys per bucket |
+|---|---|---|---|---|---|
+| no views | 16 | 31: 3.0 (2.2–4.1) | 22: 7.7 (5.5–10.7) | 5: 12.9 (7.8–21.6) † | 3 / 1 / 3 / 3 |
+| views, other category | 71 | 145: 4.0 (3.5–4.6) | 59: 9.7 (8.1–11.5) | 13: 22 (17–30) † | 11 / 26 / 22 / 6 |
+| views, viewed category | 15 † | 77: 2.8 (2.1–3.7) | 68: 5.4 (4.0–7.1) | 32: 11.3 (8.3–15.5) | 3 / 19 / 33 / 13 |
 ## 4 · Segment (android in Andalucía/Canarias/Murcia against the rest, same category and shopper type)
 | category | new: clicks south/rest | new click× (68%) | returning: clicks south/rest | returning click× (68%) |
 |---|---|---|---|---|
@@ -72,10 +62,29 @@ They do not multiply. Inside the session category, a past view adds ×1.4 in cli
 
 `rules` puts its best product first: slot 1 holds 16 of its 24 purchases. Below slot 2 the order looks flat, but 68 clicks are too few to tell.
 
+## 7 · Category pages (run 13:46, 3,286 `rules` lists; † throughout for `rules`)
+| per request | best sellers: requests / clicks / ctr / conv | rules: requests / clicks / ctr / conv |
+|---|---|---|
+| product page | 20,236 / 523 / 2.6% / 0.91% | 1,832 / 82 / 4.5% / 1.86% |
+| category page | 8,769 / 239 / 2.7% / 0.75% | 795 / 21 / 2.6% / 0.88% |
+- Best sellers do as well on category pages as on product pages. `rules` adds ×1.7 in clicks on product pages and nothing on category pages (21 against 82 clicks, about 2.5σ).
+- On best-seller lists the session relation holds on category pages: same category as the last view ×3.0 clicks (47), same product 8 clicks in 52 weighted impressions. Nothing says the browsed category differs from the last view's.
+- History cannot tell: the old carousel showed exactly the last view's category on 100% of category and product requests (one category per list), and both pages converted the same (4.49% / 1.71% and 4.48% / 1.72% per request).
+- Inside `rules` lists every relation is weak on category pages (re-shown last view 3 clicks in 515 weighted impressions, same category 4 in 1,006), but too few clicks to say which part fails.
+## 8 · Age of the last recent view (request ts − last view ts)
+| | <30 s | 30 s–2 min | 2–10 min |
+|---|---|---|---|
+| share of live requests (both pages alike, median 32 s, none over 10 min) | 48.6% | 44.4% | 7.1% |
+| history, re-shown last view, ctr_w / conv_w (product; category alike) | 6.6 / 4.7 | 6.4 / 4.1 | 7.5 / 5.2 |
+| history, same subcategory, ctr_w / conv_w | 1.38 / 0.58 | 1.39 / 0.58 | 1.30 / 0.53 |
+| live `rules`, re-shown last view, clicks / weighted impressions † | 10 / 815 | 6 / 756 | 0 / 113 |
+- Age has no effect in history and is distributed the same on both pages: it does not explain category pages.
+- **Re-shown last view under `rules` converts at ~1% clicks per weighted impression, against 6.5% in history and 4–15% on live best-seller lists.** The history and best-seller figures cover only last views that were popular enough to be in those lists. `rules` re-shows every last view at slot 1, whatever its appeal. LAST_VIEW mostly measured appeal; within `rules` lists the last view is ×0.9 clicks / ×2.0 buys of its other-category picks (11 clicks).
+- Next organic view cannot be measured: `recent_views` never appear in `history_events` or `shop.events` (0 of 16,094 and 0 of 8,668 exact matches). The next logged view is another session (history median 13 h later; 98% have none within 10 min).
 ## verdict
 | multiplier in rules.py | history-based value used now | live estimate (× purchases) | rough 68% range | recommendation |
 |---|---|---|---|---|
-| LAST_VIEW | 35 | 11.4 (clicks 3.8) | 8.8–14.8 | lower to 12 |
+| LAST_VIEW | 35 | 11.4 on best sellers; ~1–2 inside `rules` (item 8) | 8.8–14.8 | lower to ≤ 12; probe |
 | RECENT_VIEW | 20 | 11.0 (clicks 5.5) | 8.4–14.4 | 12, same as the last view |
 | SUBCATEGORY (last, earlier) | 6, 5 | 3.7, 5.3 † | 2.9–4.7, 3.8–7.5 | 4 and 4: no subcategory bonus over category |
 | CATEGORY (last, earlier) | 4, 3 | 4.5, 3.8 | 3.9–5.2, 2.9–4.9 | 4.5 and 3.5: keep |
