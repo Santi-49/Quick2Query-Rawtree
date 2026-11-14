@@ -3,7 +3,11 @@ name = "q2q"
 version = "0.1.0"
 description = "quick2query: real-time recommender for the Datathon FME 2026 RawTree challenge"
 requires-python = ">=3.12"
-dependencies = ["requests>=2.32", "numpy>=2.0"]
+dependencies = [
+    "requests>=2.32",
+    "numpy>=2.0",
+    "lightgbm>=4.7.0",
+]
 
 [project.scripts]
 q2q = "q2q.cli:main"

@@ -8,12 +8,17 @@ def main() -> None:
     serve = sub.add_parser("serve", help="answer live requests")
     serve.add_argument("--shadow", action="store_true", help="compute everything, insert nothing")
     sub.add_parser("pull", help="rebuild the history caches")
+    trainer = sub.add_parser("train", help="train the ranker on live feedback")
+    trainer.add_argument("every", nargs="?", type=int, default=0)
     board = sub.add_parser("board", help="our models on the leaderboard, read directly")
     board.add_argument("minutes", nargs="?", type=int, default=60)
     args = parser.parse_args()
     if args.cmd == "serve":
         from q2q import serve as router
         router.run(shadow=args.shadow)
+    elif args.cmd == "train":
+        from q2q import train
+        train.run(args.every)
     elif args.cmd == "board":
         from q2q import evaluate
         evaluate.models_report(args.minutes)

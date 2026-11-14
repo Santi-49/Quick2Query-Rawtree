@@ -293,9 +293,10 @@ class State:
     def available(self, pid: str) -> bool:
         return pid in self.products and pid not in self._inactive and time.time() >= self._until.get(pid, 0.0)
 
-    def shopper(self, user_id: str) -> Shopper | None:
+    def shopper(self, user_id: str, live: bool = True) -> Shopper | None:
+        """What we know about a shopper. live=False leaves out today, for training on past feedback without leaking its outcome."""
         i = self._user_row.get(user_id)
-        live = self._live.get(user_id, set())
+        live = self._live.get(user_id, set()) if live else set()
         if i is None and not live:
             return None
         bought, viewed, cat_views = set(live), {}, {}
