@@ -100,7 +100,7 @@ def pd_table(T, m, cols, f, sample):
     else:
         edges = np.unique(np.nanquantile(x, [0, .2, .4, .6, .8, .9, .97, 1]))
         bins = pd.cut(x, edges, include_lowest=True, duplicates="drop").astype(str).where(x.notna(), "NaN")
-    g = T.assign(b=bins, w=1 / np.log2(T.slot + 1)).groupby("b", observed=True).agg(n=("click", "size"), w=("w", "sum"), clicks=("click", "sum"),
+    g = T.assign(b=bins, w=1 / np.log2(T.slot + 1), click=T.click.astype(int), buy=T.buy.astype(int)).groupby("b", observed=True).agg(n=("click", "size"), w=("w", "sum"), clicks=("click", "sum"),
                                                                                   buys=("buy", "sum"), med=(f, "median"))
     g["click_pw"], g["buy_pw"] = 100 * g.clicks / g.w, 100 * g.buys / g.w
     S = sample.copy()

@@ -52,9 +52,10 @@ def prepare(T, fit_mask):
     X = T[nums].to_numpy(dtype="float32")
     miss = np.isnan(X)
     flags = miss[:, miss.any(0)]
-    X = np.sign(X) * np.log1p(np.abs(np.nan_to_num(X)))
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+    X = np.sign(X) * np.log1p(np.abs(X))
     mu, sd = X[fit_mask].mean(0), X[fit_mask].std(0) + 1e-6
-    X = np.concatenate([(X - mu) / sd, flags], 1).astype("float32")
+    X = np.concatenate([np.clip((X - mu) / sd, -8, 8), flags], 1).astype("float32")
     sizes = {c: int(C[:, i].max()) + 1 for i, c in enumerate(EMB)} | {"ph": int(C[:, -2:].max()) + 1}
     return torch.tensor(C, dtype=torch.long), torch.tensor(X), sizes
 

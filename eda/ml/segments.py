@@ -82,7 +82,7 @@ def main():
             p = m.predict(K_.loc[parts[2], cols_], num_iteration=m.best_iteration)
             print(f"  {label:5s} {name:50s} {auc(K_.loc[parts[2], label].to_numpy(), p):.4f} (trees {m.best_iteration})")
     print("\nclick % per weighted impression by component x shown category (known shoppers, cells with >= 15 clicks):")
-    K_["w"] = 1 / np.log2(K_.slot + 1)
+    K_["w"], K_["click"], K_["buy"] = 1 / np.log2(K_.slot + 1), K_.click.astype(int), K_.buy.astype(int)
     g = K_.groupby(["cluster", "p_cat"]).agg(w=("w", "sum"), clicks=("click", "sum"), buys=("buy", "sum"))
     g["click_pw"] = 100 * g.clicks / g.w
     g = g.join(K_.groupby("p_cat").apply(lambda x: 100 * x.click.sum() / x.w.sum(), include_groups=False).rename("cat_avg"), on="p_cat")

@@ -1,0 +1,171 @@
+# What we know about the hidden simulator, one entry per variation factor. The dashboard's Knowledge tab reads this file.
+# Edit it after every hypothesis verdict. Only measured numbers: each `size` is quoted in the write-up named by `source`.
+#
+# factor    short name
+# effect    one plain sentence with the numbers
+# size      the multiplier used for the bar and the order. Above 1 raises the chance, below 1 lowers it
+# measure   what the multiplier is on: purchases, clicks, views
+# evidence  "live" (seen on our own feedback), "history only" (60-day logs, not yet seen live),
+#           "reversed live" (history said the opposite), "live views only" (organic views, not carousel purchases)
+# source    hypothesis slug: docs/hypotheses/H-<slug>.md or a row of docs/SIMULATOR.md
+# used_by   strategies that carry it
+
+no_effect = [
+    "age of the last view (view-age)",
+    "category page against product page (category-page)",
+    "hour and day (context-effects)",
+    "subcategory over category of the last view (live-factors)",
+]
+
+[[factor]]
+factor = "Carted before, not bought (home page)"
+effect = "A product the shopper once put in the cart and did not buy converts ×14 to ×54 better than a product never seen, live; ×38 in history. 16 of 24 home purchases of returning shoppers."
+size = 14
+measure = "purchases"
+evidence = "live"
+source = "home-ceiling"
+used_by = ["cold2"]
+
+[[factor]]
+factor = "Product is one of the recent views"
+effect = "Re-showing a product from the session: ×11 purchases against a product from another category (last view ×11.4, other recent view ×11.0). Inside our own lists the gain is smaller, about ×1–2."
+size = 11
+measure = "purchases"
+evidence = "live"
+source = "live-factors"
+used_by = ["rules2", "rules4", "ranker"]
+
+[[factor]]
+factor = "Favourite category of the shopper"
+effect = "Clicks ×4, ×9.7 and ×22 when the category holds 10–30%, 30–60% and over 60% of the shopper's past views. History on home: ×28. Making it steeper still (rules3) lost about 6 points."
+size = 9.7
+measure = "clicks"
+evidence = "live"
+source = "live-factors"
+used_by = ["rules2", "cold1", "cold2", "ranker"]
+
+[[factor]]
+factor = "Same category as the session"
+effect = "A product from the category of the last view: ×4.5 purchases against another category. The subcategory adds nothing on top (×3.7)."
+size = 4.5
+measure = "purchases"
+evidence = "live"
+source = "live-factors"
+used_by = ["rules2", "rules4", "ranker"]
+
+[[factor]]
+factor = "Segment: Android in the south"
+effect = "Android shoppers in Andalucía, Canarias and Murcia buy ×4.3 (new) and ×3.1 (returning) more overall; by category Fashion ×11 and Computers & Gaming ×5.6 in clicks. History: Home & Kitchen ×14."
+size = 4.3
+measure = "purchases"
+evidence = "live"
+source = "live-factors"
+used_by = ["rules", "rules2", "cold1", "cold2", "ranker"]
+
+[[factor]]
+factor = "Slot in the list"
+effect = "Attention falls as 1/log2(slot+1): slot 1 gets ×3.5 the weight of slot 10 and slots 1–3 carry 47% of it. History within 10%; live lists agree."
+size = 3.5
+measure = "clicks"
+evidence = "live"
+source = "attention-decay"
+used_by = ["rules", "rules2", "rules4", "cold1", "cold2", "ranker"]
+
+[[factor]]
+factor = "Viewed on earlier days, not bought"
+effect = "×3.1 purchases against a product never seen, the same for one view or nine. Only ×1.4 when the product is already in the session's category."
+size = 3.1
+measure = "purchases"
+evidence = "live"
+source = "live-factors"
+used_by = ["rules2", "rules4", "cold1"]
+
+[[factor]]
+factor = "A click on a recent view becomes a purchase"
+effect = "81% of clicks on a recent view end in a purchase (17 of 21), against 27% for other products: ×3."
+size = 3.0
+measure = "purchases after a click"
+evidence = "live"
+source = "live-factors"
+used_by = ["rules2", "ranker"]
+
+[[factor]]
+factor = "Already bought"
+effect = "History said ×94 on the home page. Live it is ×0.36 of a product never seen, and 0 clicks in 3,590 home impressions. The organisers confirmed it: history was generated without this effect."
+size = 0.36
+measure = "purchases"
+evidence = "reversed live"
+source = "home-personal"
+used_by = ["rules", "rules2", "rules4", "cold1", "cold2", "ranker"]
+
+[[factor]]
+factor = "Main category of the session"
+effect = "When most recent views are in another category than the last view (9% of requests), the majority category gets ×2.8 purchases and ×1.6 clicks over the last view's."
+size = 2.8
+measure = "purchases"
+evidence = "live"
+source = "category-page"
+used_by = ["rules4"]
+
+[[factor]]
+factor = "First recent view against later ones"
+effect = "Among re-shown recent views of equal popularity, the first (oldest) one gets ×2.4 the clicks of later ones, the last one included. History ×1.95."
+size = 2.4
+measure = "clicks"
+evidence = "live"
+source = "reshow-rank"
+used_by = ["rules4"]
+
+[[factor]]
+factor = "Subcategory rank on the home page"
+effect = "History: the shopper's top subcategory converts ×2.5 over the second and third. No live effect found so far."
+size = 2.5
+measure = "purchases"
+evidence = "history only"
+source = "home-personal"
+used_by = []
+
+[[factor]]
+factor = "New shopper"
+effect = "A new shopper buys ×2 more than a returning one on the same best-seller list: they own nothing yet."
+size = 2.0
+measure = "purchases"
+evidence = "live"
+source = ""
+used_by = []
+
+[[factor]]
+factor = "Category viewed in the last day (home page)"
+effect = "History: a category viewed within a day converts ×2 over one last viewed 8–30 days ago. No live effect found so far."
+size = 2.0
+measure = "purchases"
+evidence = "history only"
+source = "home-personal"
+used_by = []
+
+[[factor]]
+factor = "No recent views (home page)"
+effect = "Without recent views any product converts at ×0.61 of an other-category product shown to a shopper with views."
+size = 0.61
+measure = "purchases"
+evidence = "live"
+source = "live-factors"
+used_by = ["cold1", "cold2"]
+
+[[factor]]
+factor = "Trend on a subcategory"
+effect = "Organic views of a subcategory jump ×5 at a half-hour mark. Not yet shown to raise purchases in the carousel."
+size = 5
+measure = "views"
+evidence = "live views only"
+source = "trend-lead"
+used_by = ["rules", "rules2", "ranker"]
+
+[[factor]]
+factor = "Price cut of 20%"
+effect = "Pets after the cut: share of views +15%, purchases per view +7%."
+size = 1.07
+measure = "purchases per view"
+evidence = "live views only"
+source = "price-change"
+used_by = ["rules2", "ranker"]
