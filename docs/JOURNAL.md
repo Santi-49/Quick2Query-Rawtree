@@ -68,3 +68,11 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - **Public names of variants.** A variant or ablation of a model now shows as the model's public word plus a capital letter (`strategy.VARIANT`): `blend1` is `shaleB`, was `m5c9e7`. The evaluation adds up an arm seen under two labels, so the running trial is not split. Router restart at 22:07 cost 72 fallback answers.
 - **Drift test (H-drift): no change to training.** Product, brand and phrase rates do not drift today or over 59 days. The only moving part is the 2-hour subcategory bursts. Retraining faster than 20 minutes, a recent window only, and recency weights all tie or lose. A model 60 minutes old ties.
 - **Per-request SQL (H-sql-neighbours) started.** A session-neighbour query takes about 300 ms, with some runs over 1 s, so it needs a 600 ms timeout and a fallback.
+
+## 14 Nov 22:35 UTC
+
+- Clean window 22:15–22:30 UTC, champion only, no exploration: 8th of 42, +40.9 (top +54.8). Same place as with trials running, so trials are not what holds us back.
+- Per kind of request in that window: ordinary 1.80%, new shoppers 2.80%, home page 0.54% on 21% of requests, equal to the baseline 0.57%. Santi: the home page is the gap to close; focus there.
+- Rejected offline: ranker6 (bagging, tie, 76 ms), ranker7 (organic buy model, worse alone), knn1 (per-request SQL neighbours, tie at best, 350 ms).
+- ranker8 (ablated inputs plus rules5 rank) ties offline with upside: queued on ordinary requests after blend1, and on the home page now. Trainer runs on the laptop every 30 min.
+- Started: hot1 (home page from SQL aggregates) and a diagnosis of who home-page shoppers are (H-home-who).
