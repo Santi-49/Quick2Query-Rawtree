@@ -1,0 +1,120 @@
+# Registry of strategies, the plan for the next windows and the backlog. The dashboard reads this file.
+# "Running" is not written here: it is whatever arms.toml gives traffic to. status is only: retired, queued, or empty.
+
+[strategies.baseline]
+summary = "The all-time best sellers in stock, the same list for everyone. It is the organisers' baseline and what the guard pads with."
+status = "retired"
+conclusion = "Score 0 by definition. Kept as the fallback inside the guard."
+hypotheses = []
+
+[strategies.rules]
+summary = "Score = appeal × relation to the session × past views × favourite category × segment × trend, with weights taken from the history logs."
+status = "retired"
+conclusion = "First real strategy: about +16 against the baseline. Replaced after live data showed three of its history-based weights were off by 3 to 10 times."
+hypotheses = ["last-view", "session-intent", "no-rebuy", "context-effects"]
+
+[strategies.rules2]
+summary = "The same rules with every weight re-measured on live feedback: recent views ×12, same category ×4.5, a past view ×3, favourite category far heavier."
+status = ""
+conclusion = "Champion since 15:08 UTC. About 1.65–1.70% conversion, score near 32."
+hypotheses = ["live-factors"]
+
+[strategies.rules3]
+summary = "rules2 with the favourite category as a power law of its share, (share / 10%)^1.5."
+status = "retired"
+conclusion = "Dropped at 15:40 UTC: about 6 points behind rules2. The steeper effect hurts when the shopper has recent views."
+hypotheses = ["home-personal"]
+
+[strategies.cold1]
+summary = "For requests with no recent views. Best-seller counts as base, then the shopper's favourite category, products viewed and not bought, and the segment of device and region."
+status = ""
+conclusion = "In test against rules2 on home-page requests."
+hypotheses = ["home-personal", "cold-prior"]
+
+[strategies.ranker]
+summary = "Gradient-boosted trees (LightGBM) trained on our own live feedback, 21 inputs, retrained every 20 minutes. Predicts the click, then weights by the chance a click becomes a purchase."
+status = ""
+conclusion = "In test on 25% of ordinary requests since 16:10 UTC. Offline AUC 0.777 against 0.710 for the slot alone."
+hypotheses = ["live-factors", "ml-signals"]
+
+[strategies.explore]
+summary = "Shows 5% of shoppers products drawn at random from one of six groups and logs the chance of each draw. It measures what the champion never shows."
+status = ""
+conclusion = "Not meant to win. Its rows feed the ranker and the hypotheses."
+hypotheses = ["cross-category", "novelty"]
+
+# The next windows, 15 minutes each (the shortest the leaderboard reads). Edited by hand or by the operator.
+[[plan]]
+when = "16:15–16:45"
+what = "ranker 25% against rules2 on ordinary requests; cold1 50% against rules2 on requests without views"
+decide = "Drop cold1 if it is behind rules2-h over 300 requests each. Keep ranker running: it retrains every 20 minutes."
+
+[[plan]]
+when = "16:45–17:15"
+what = "ranker against rules2, second reading after two retrains"
+decide = "Raise ranker to 50% if within 3 points of rules2, drop to 10% if more than 8 behind."
+
+[[plan]]
+when = "17:15–18:00"
+what = "category-page variant of rules2; wide-feature ranker if the ML study delivers new signals"
+decide = "Promote whichever beats the champion in two consecutive 30-minute windows."
+
+[[plan]]
+when = "tonight"
+what = "operator loop: read the per-model board every 15 minutes, apply the promotion and drop rules, retrain"
+decide = "Challengers together hold at most half of the traffic."
+
+# Ideas not implemented yet.
+[[backlog]]
+idea = "Category pages"
+why = "They convert less than half as well as product pages. Largest known leak."
+hypothesis = "live-factors"
+size = "small"
+
+[[backlog]]
+idea = "Wide-feature ranker"
+why = "150+ aggregates per impression instead of 21, to find signals and interactions we have not thought of."
+hypothesis = "ml-signals"
+size = "large, in study"
+
+[[backlog]]
+idea = "Cold route for new shoppers with views"
+why = "Our strongest segment (2.67% in one window): a dedicated strategy could push it further."
+hypothesis = "cold-prior"
+size = "small"
+
+[[backlog]]
+idea = "Brand, phrase and price affinity"
+why = "Rank better inside the session's category."
+hypothesis = "brand-affinity"
+size = "medium"
+
+[[backlog]]
+idea = "Co-view neighbours as candidates"
+why = "Item-to-item signal from organic sessions."
+hypothesis = "co-view"
+size = "medium"
+
+[[backlog]]
+idea = "Purchase model on top of the click model"
+why = "A clicked recent view is bought 81% of the time, other products 27%. Today this is a fixed two-value rule."
+hypothesis = "live-factors"
+size = "small"
+
+[[backlog]]
+idea = "Subcategory rank and category recency on home"
+why = "×2.5 and ×2 in history, not yet seen live."
+hypothesis = "home-personal"
+size = "small"
+
+[[backlog]]
+idea = "Operator agent"
+why = "Reads the board in RawTree, writes verdicts, edits arms.toml within a budget. Also the side-challenge entry."
+hypothesis = ""
+size = "medium"
+
+[[backlog]]
+idea = "Bandit over strategies"
+why = "Automatic traffic allocation instead of fixed shares."
+hypothesis = ""
+size = "medium"

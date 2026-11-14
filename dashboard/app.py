@@ -10,6 +10,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+import board as tab
 from q2q import evaluate, rt, serve
 from q2q.strategy import Request, decode, guard, load, route_of
 
@@ -100,7 +101,7 @@ try:
 except Exception as e:
     st.warning(f"Header numbers unavailable: {e}")
 
-tabs = st.tabs(["Live traffic", "Overview", "One live request", "Hypotheses", "Explore arm", "Backlog and journal", "Raw tables", "How it works"])
+tabs = st.tabs(["Live traffic", "Strategies", "Overview", "One live request", "Hypotheses", "Explore arm", "Backlog and journal", "Raw tables", "How it works"])
 
 
 # ---------- 0. live traffic ----------
@@ -265,20 +266,24 @@ def hypotheses():
     df["live SQL"] = df.slug.map(lambda s: (ROOT / f"sql/hypotheses/H-{s}.sql").exists())
     counts = df.status.str.split().str[0].value_counts()
     st.markdown(" ".join(f"<span class='tag'>{k}: {v}</span>" for k, v in counts.items()), unsafe_allow_html=True)
-    st.dataframe(df.sort_values(["write-up", "live SQL"], ascending=False), hide_index=True, width="stretch", height=360)
-    with_sql = sorted(f.stem[2:] for f in (ROOT / "sql/hypotheses").glob("H-*.sql"))
-    if not with_sql:
+    shown = df.sort_values(["write-up", "live SQL"], ascending=False).reset_index(drop=True)
+    picked = st.dataframe(shown, hide_index=True, width="stretch", height=360, on_select="rerun", selection_mode="single-row", key="hypothesis_table")
+    st.caption("Select a row above to open a hypothesis.")
+    if not (picked and picked.selection.rows):
         return
-    slug = st.selectbox("Open a hypothesis", with_sql)
-    doc, sql = ROOT / f"docs/hypotheses/H-{slug}.md", (ROOT / f"sql/hypotheses/H-{slug}.sql").read_text(encoding="utf-8")
-    a, c = st.columns(2)
-    a.markdown(doc.read_text(encoding="utf-8") if doc.exists() else "_No write-up yet, only the queries._")
-    statements = [s.strip() for s in sql.split(";\n") if s.strip() and not all(l.startswith("--") for l in s.strip().splitlines())]
+    slug = shown.slug.iloc[picked.selection.rows[0]]
+    used = [n for n, s in tab.registry()["strategies"].items() if slug in s.get("hypotheses", [])]
+    st.markdown(f"### {slug}" + (f" · used by {', '.join(used)}" if used else " · not used by a strategy yet"))
+    tab.hypothesis(slug, tab.simulator_rows(), expanded=True)
+    path = ROOT / f"sql/hypotheses/H-{slug}.sql"
+    if not path.exists():
+        return
+    statements = [s.strip() for s in path.read_text(encoding="utf-8").split(";\n") if s.strip() and not all(l.startswith("--") for l in s.strip().splitlines())]
     titles = [next((l.lstrip("- ") for l in reversed(s.splitlines()) if l.startswith("--")), s[:50]) for s in statements]
-    i = c.selectbox("Query to run on live data", range(len(statements)), format_func=titles.__getitem__)
-    if c.button("Run live"):
-        c.dataframe(q("\n".join(l for l in statements[i].splitlines() if not l.startswith("--")).rstrip(";").replace("{TEAM}", rt.TEAM)), hide_index=True)
-    c.code(statements[i], language="sql")
+    i = st.selectbox("Query to run on live data", range(len(statements)), format_func=titles.__getitem__)
+    if st.button("Run live"):
+        st.dataframe(q("\n".join(l for l in statements[i].splitlines() if not l.startswith("--")).rstrip(";").replace("{TEAM}", rt.TEAM)), hide_index=True)
+    st.code(statements[i], language="sql")
 
 
 # ---------- 4. explore ----------
@@ -355,7 +360,7 @@ def how():
     st.info("The illustrated explanation is `docs/explainer.html`: open it in a browser. It tells the story in ten pictures, with no code.")
 
 
-for tab, body in zip(tabs, (live, overview, one_request, hypotheses, explore, backlog, raw, how)):
+for tab, body in zip(tabs, (live, lambda: tab.render(cfg), overview, one_request, hypotheses, explore, backlog, raw, how)):
     safe(tab, body)
 
 if auto:
