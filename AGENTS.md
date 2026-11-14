@@ -11,6 +11,15 @@ Datathon FME 2026, RawTree challenge, `team_01`. Read `docs/PLAN.md` and `docs/S
 - Only `/api/state` may be called on datathon.rawtree.dev.
 - Do not edit `starter/`.
 
+## Prod is the VM (since 14 Nov 18:10 UTC)
+
+The router and the operator run on ssh host `Server_2` in `~/q2q` as systemd services `q2q-router` and `q2q-operator`. The laptop is dev: training (`train2`), `scripts/push_models.py`, the loggers and the dashboard. **Never start `q2q serve` on the laptop without `--shadow`.**
+
+```
+scripts/vm.sh status | code | arms | models | pull
+```
+Deploy a strategy: commit, `scripts/vm.sh code` (hot-reloaded). Change traffic: `scripts/vm.sh pull`, edit `arms.toml`, `scripts/vm.sh arms`. Changes to `serve.py`, `state.py`, `strategy.py` also need `ssh Server_2 sudo systemctl restart q2q-router` (about 20 s of fallback).
+
 ## Layout
 
 | Path | What |
