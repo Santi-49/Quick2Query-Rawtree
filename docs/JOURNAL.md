@@ -76,3 +76,4 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - Rejected offline: ranker6 (bagging, tie, 76 ms), ranker7 (organic buy model, worse alone), knn1 (per-request SQL neighbours, tie at best, 350 ms).
 - ranker8 (ablated inputs plus rules5 rank) ties offline with upside: queued on ordinary requests after blend1, and on the home page now. Trainer runs on the laptop every 30 min.
 - Started: hot1 (home page from SQL aggregates) and a diagnosis of who home-page shoppers are (H-home-who).
+- Rejected offline: hot1 (cold2 times live buys per view plus two history multipliers). +1.2 pts organic top 10 over cold2, all of it from the history multipliers; below ranker2 (5.7% vs 6.3%). Live product counts add nothing for the home page. 38% of organic home purchases are re-buys we may not show.
