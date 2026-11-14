@@ -197,7 +197,15 @@ def models(minutes: int = 60, end: float | None = None) -> list[dict]:
             "requests": v["requests"], "conversion": v["conversion"], "cold_conversion": v.get("cold_conversion"),
             "score": 100 * (v["conversion"] - base) / ORACLE_GAP, "baseline": base, "reference": s["reference"]["conversion"],
             "window_end": iso(s["window"][1])} for v in us.get("versions", [])]
-    return sorted(out, key=lambda r: (r["route"], -r["requests"]))
+    merged = {}   # one arm can appear under two labels after a rename: add them up
+    for r in out:
+        m = merged.setdefault((r["arm"], r["route"]), dict(r, requests=0, conversion=0.0))
+        if r["requests"] > m["requests"]:
+            m["label"], m["cold_conversion"] = r["label"], r["cold_conversion"]
+        total = m["requests"] + r["requests"]
+        m["conversion"] = (m["conversion"] * m["requests"] + r["conversion"] * r["requests"]) / max(total, 1)
+        m["requests"], m["score"] = total, 100 * (m["conversion"] - base) / ORACLE_GAP
+    return sorted(merged.values(), key=lambda r: (r["route"], -r["requests"]))
 
 
 def models_report(minutes: int = 60) -> None:
