@@ -10,7 +10,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-import board as tab
+import board as strategies_tab
 from q2q import evaluate, rt, serve
 from q2q.strategy import Request, decode, guard, load, route_of
 
@@ -114,7 +114,8 @@ def live():
     df["route"] = df.model_version.map(lambda m: {"": "ordinary", "no_views": "no recent views", "new_shopper": "new shopper"}[route_of(m)] if m else "")
     a, c = st.columns([1, 2])
     a.markdown("### Who is answering, last 5 minutes")
-    mix = df.groupby(["route", "strategy"], as_index=False).agg(requests=("time", "size"), clicks=("clicked", "sum"), purchases=("purchased", "sum"))
+    df["public name"] = df.model_version.fillna("")
+    mix = df.groupby(["route", "strategy", "public name"], as_index=False).agg(requests=("time", "size"), clicks=("clicked", "sum"), purchases=("purchased", "sum"))
     mix["share"] = 100 * mix.requests / mix.requests.sum()
     a.dataframe(mix.sort_values("requests", ascending=False), hide_index=True, column_config={"share": PCT})
     a.markdown("### What should be running (arms.toml)")
@@ -128,7 +129,7 @@ def live():
     c.markdown("### Each shopper, newest first")
     df["result"] = df.apply(lambda r: "bought" if r.purchased else "clicked" if r.clicked else "fallback" if r.served_by == "fallback" else "", axis=1)
     df["shopper"] = df.new_shopper.map({True: "new", False: "returning"})
-    c.dataframe(df[["time", "page", "shopper", "device", "region", "views", "strategy", "route", "latency_ms", "result"]].head(200), hide_index=True, height=420,
+    c.dataframe(df[["time", "page", "shopper", "device", "region", "views", "strategy", "public name", "route", "latency_ms", "result"]].head(200), hide_index=True, height=420,
                 column_config={"latency_ms": st.column_config.NumberColumn("latency ms", format="%.0f")})
     c.caption("Turn on \"Refresh every 30 s\" in the sidebar to follow it. Feedback arrives about a second after each request.")
 
@@ -272,9 +273,9 @@ def hypotheses():
     if not (picked and picked.selection.rows):
         return
     slug = shown.slug.iloc[picked.selection.rows[0]]
-    used = [n for n, s in tab.registry()["strategies"].items() if slug in s.get("hypotheses", [])]
+    used = [n for n, s in strategies_tab.registry()["strategies"].items() if slug in s.get("hypotheses", [])]
     st.markdown(f"### {slug}" + (f" · used by {', '.join(used)}" if used else " · not used by a strategy yet"))
-    tab.hypothesis(slug, tab.simulator_rows(), expanded=True)
+    strategies_tab.hypothesis(slug, strategies_tab.simulator_rows(), expanded=True)
     path = ROOT / f"sql/hypotheses/H-{slug}.sql"
     if not path.exists():
         return
@@ -360,7 +361,7 @@ def how():
     st.info("The illustrated explanation is `docs/explainer.html`: open it in a browser. It tells the story in ten pictures, with no code.")
 
 
-for tab, body in zip(tabs, (live, lambda: tab.render(cfg), overview, one_request, hypotheses, explore, backlog, raw, how)):
+for tab, body in zip(tabs, (live, lambda: strategies_tab.render(cfg), overview, one_request, hypotheses, explore, backlog, raw, how)):
     safe(tab, body)
 
 if auto:

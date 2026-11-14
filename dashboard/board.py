@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 
 from q2q import evaluate, rt
+from q2q.strategy import ROUTES, label
 
 ROOT = rt.ROOT
 ROUTE = {"main": "ordinary", "no_views": "no recent views", "new_shopper": "new shopper"}
@@ -77,14 +78,16 @@ def render(cfg: dict) -> None:
         mine = b[b.arm == name] if not b.empty else b
         n = int(mine.requests.sum()) if len(mine) else 0
         conv = float((mine.conversion * mine.requests).sum() / n) if n else None
-        rows.append({"strategy": name, "status": status_of(name, info, cfg), "requests": n, "conversion %": conv,
+        rows.append({"strategy": name, "public name": label(name), "status": status_of(name, info, cfg), "requests": n, "conversion %": conv,
                      "score": 100 * (conv - mine.baseline.iloc[0]) / evaluate.ORACLE_GAP if n else None,
                      "conclusion": info.get("conclusion", "not in strategies.toml yet")})
     order = {"champion": 0, "running": 1, "queued": 2, "retired": 3}
     table = pd.DataFrame(rows).sort_values("status", key=lambda s: s.map(order)).reset_index(drop=True)
     counts = table.status.value_counts()
     st.markdown(" ".join(f"<span class='tag'>{k}: {counts.get(k, 0)}</span>" for k in order), unsafe_allow_html=True)
-    st.caption("Select a row to open a strategy. Conversion and score come from the per-model leaderboard in the chosen window; "
+    st.caption("The public name is what the leaderboard shows for us, so other teams learn nothing from it; "
+               f"a suffix marks the kind of request: {', '.join(f'{s or chr(34) * 2} {r or chr(111) + chr(114) + chr(100) + chr(105) + chr(110) + chr(97) + chr(114) + chr(121)}' for r, s in ROUTES.items())}. "
+               "Select a row to open a strategy. Conversion and score come from the per-model leaderboard in the chosen window; "
                "a strategy that only answers one kind of request is not comparable with the others on this line, see its detail.")
     picked = st.dataframe(table, hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row", key="strategy_table",
                           column_config={"conversion %": st.column_config.NumberColumn(format="%.2f%%"), "score": st.column_config.NumberColumn(format="%+.1f"),
