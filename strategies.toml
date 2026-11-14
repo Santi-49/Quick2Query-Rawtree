@@ -138,10 +138,16 @@ status = "queued"
 conclusion = "Not run live. Our feedback 14 Nov to 17:20 UTC: carted today converts 1.72% / 6.37% per weighted impression (returning / new with views) against 0.69% / 1.24% for the first view, available on 40-44% of requests, at slot 1 in 2%. Dry run on 300 live requests: 300/300 valid, 0.9 ms median, 2.1 ms p95; top 3 differs from rules4 on 262/300. Needs today's carts since the start of the day in State (H-gap next)."
 hypotheses = ["gap", "home-ceiling", "reshow-rank", "session-shape"]
 
+[strategies.ranker3]
+summary = "ranker2 plus what came after it, all as of the request: today's carts (times, minutes since, same category and subcategory), our list clicked earlier today, a one-view session, distinct recent views, log appeal, log buys per view, history cart x high cart rate. Every product carted today is a candidate."
+status = "queued"
+conclusion = "Not run live. Trained to 18:30 UTC: 13,355 today-cart impressions, 116 purchases, so no hand prior. Newest 20%: click AUC 0.838 against 0.821 for ranker2's features, purchased product in the top 3 in 71% of 271 requests against 62%. Leak-free replay 15:32-18:32 (models fitted before it), paired against ranker2: hit3 +1.1 ± 2.2 main and +3.0 ± 3.4 new shoppers, but hit10 on requests neither logged -4.9 ± 2.0 main; on the 71 purchases of a today cart hit1 48% against 30% (rules5 72%). A x3 cart prior lifted those to 68% and cost hit3 elsewhere. 5.8 ms median on 300 live requests."
+hypotheses = ["ranker3", "gap", "loglinear", "ml-signals"]
+
 # Queued on 14 Nov 18:50 UTC when Santi left. Do these first, in this order.
 [[backlog]]
-idea = "QUEUED 1 · Finish ranker3 and put it in place of rules5"
-why = "ranker2 plus today's carts, our own clicks, single-view sessions. Files: src/q2q/train3.py, strategies/ranker3.py, models/ranker3*.txt. Needs: the agent's report, `train3` in cli.py, `state.our_clicks_today`, a public name in strategy.PUBLIC, a replay check held out in time, then scripts/vm.sh code and models, restart the VM router."
+idea = "QUEUED 1 · ranker3: retest before giving it traffic"
+why = "Built and committed, not live. Offline, held out in time, it does not beat ranker2 overall (main hit3 +1.1 ± 2.2; hit10 on requests neither arm logged −4.9 ± 2.0), though it ranks today-carted purchases far better (top 3 in 73% against 46%). Its test model saw only 37 today-cart purchases; the current one saw 116. Next: add `our_clicks_today` and cart times to state.py, `train3` to cli.py, a public name; replay a window after 18:30 with `uv run eda/replay/holdout3.py 3 --refresh`; if ahead, try it live on new shoppers first. See docs/hypotheses/H-ranker3.md."
 hypothesis = "gap"
 size = "small, in progress"
 
