@@ -61,3 +61,4 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - Tried ranker4 = ranker2 with up to 3 of today's carts pinned on top. Replay: carted-today purchases top 1 63% vs 33%, but all purchases top 1 21% vs 36%: shoppers with carts today mostly buy something else. Rejected, file deleted. Carts today are 26% of purchases (144 of 552).
 - Laptop slept 19:47 to 20:57 UTC: ranker2 on the VM was the 19:34 model for 90 minutes. train2 restarted by itself.
 - Team: 11th of 42 over 60 min (+38.7), 9th over 3 h. Leaders team_06 +59, team_14 +57, team_03 +56 (one model, 2.19% on all traffic).
+- 14 Nov 21:38 UTC · blend1 (rank fusion of ranker2 and rules5) on half of ordinary and new-shopper traffic through the operator queue. Offline: top 10 +3.4 ordinary, new shoppers top 1 +3.1, ordinary top 1 -2.2. Operator now rematches tested candidates when the queue is empty, promotion bar z 1.8.
