@@ -123,5 +123,5 @@ hypotheses = ["home-ceiling", "home-personal"]
 [strategies.rules4]
 summary = "rules2 reading the whole session: the first recent view leads (later views, the last one included, count 5 instead of 12) and the session's category is the one with most views, not the last view's."
 status = ""
-conclusion = "In test on a third of ordinary requests since 16:35 UTC. Evidence: the first view gets 2.4 times the clicks of later views at equal popularity; the session's main category beats the last view's category when they differ."
+conclusion = "In test on a third of ordinary requests since 16:35 UTC. Evidence: the first view gets 2.4 times the clicks of later views at equal popularity; the session's main category beats the last view's category when they differ. Since 16:37 it also gives carted-not-bought products ×6 and no bonus to products only viewed: outside the session category a carted product gets 5.6 times the clicks, a viewed-only one 1.0."
 hypotheses = ["category-page", "session-shape", "reshow-rank", "slot-order", "view-age"]
