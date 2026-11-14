@@ -19,7 +19,7 @@ from q2q import rt, strategies
 from q2q.strategy import Request, decode, guard, label, load
 
 ARMS = rt.ROOT / "arms.toml"
-DEFAULTS = {"champion": "baseline", "schedule": [], "explore_share": 0.03, "salt": "q2q-1"}
+DEFAULTS = {"champion": "baseline", "schedule": [], "explore_share": 0.03, "salt": "q2q-1", "routes": {}}
 STALE = 2.7          # seconds: older requests are skipped, the fallback answers them anyway
 BLOCK_START = 395    # leaderboard blocks start at minute x6, second 35
 POLL = """
@@ -56,11 +56,12 @@ def bucket(user_id: str, salt: str) -> float:
 
 
 def arm_for(req: Request, cfg: dict) -> str:
+    """Explore share first; then the cold route that fits the request, if it has arms; then the block schedule."""
     if bucket(req.user_id, cfg["salt"]) < cfg["explore_share"]:
         return "explore"
-    if cfg["schedule"]:
-        return cfg["schedule"][int((req.ts - BLOCK_START) // 600) % len(cfg["schedule"])]
-    return cfg["champion"]
+    route = "no_views" if not req.views else "new_shopper" if req.is_new_user else ""
+    arms = cfg["routes"].get(route) or cfg["schedule"] or [cfg["champion"]]
+    return arms[int((req.ts - BLOCK_START) // 600) % len(arms)]
 
 
 def answer(req: Request, cfg: dict, state, get, sha: str) -> tuple[list[str], str]:

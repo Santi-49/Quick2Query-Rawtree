@@ -4,7 +4,7 @@ from q2q.strategy import decode
 from q2q import serve
 from q2q.strategy import N, Request
 
-CFG = {"champion": "baseline", "schedule": [], "explore_share": 0.03, "salt": "q2q-1"}
+CFG = {"champion": "baseline", "schedule": [], "explore_share": 0.03, "salt": "q2q-1", "routes": {}}
 
 
 class FakeState:
@@ -61,3 +61,12 @@ def test_failing_strategy_gives_baseline():
     items, mv = serve.answer(req(), cfg, FakeState(), lambda n: Named(n, fail=True), "abc")
     assert decode(mv) == "baseline"
     assert items == [p for p in FakeState.best if p != "b3"][:N]
+
+
+def test_cold_routes_take_requests_before_the_schedule():
+    cfg = {**CFG, "explore_share": 0.0, "schedule": ["x"], "routes": {"no_views": ["h1", "h2"], "new_shopper": []}}
+    home, new = req(), req()
+    new.views, new.is_new_user = ["p"], True
+    assert serve.arm_for(home, cfg) in ("h1", "h2")
+    assert serve.arm_for(new, cfg) == "x"
+    assert {serve.arm_for(req(ts=1794662462.0 + 600 * i), cfg) for i in range(2)} == {"h1", "h2"}
