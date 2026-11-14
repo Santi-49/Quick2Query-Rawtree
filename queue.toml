@@ -1,0 +1,4 @@
+# Candidates the operator starts by itself, one at a time per list, 150 minutes each (scripts/night_operator.py).
+# Edit, commit, scripts/vm.sh code. A candidate needs src/q2q/strategies/<name>.py on the VM (and its models).
+schedule = []
+no_views = []

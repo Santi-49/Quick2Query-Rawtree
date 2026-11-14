@@ -6,6 +6,7 @@
 Arms of one list split the same shoppers by hash, so their conversions compare directly.
 Guard rails: it only removes or reorders arms already in arms.toml, never empties a list, never drops the champion.
 """
+import json
 import math
 import sys
 import time
@@ -18,7 +19,11 @@ import note   # scripts/note.py, next to this file
 ARMS = rt.ROOT / "arms.toml"
 MIN_REQUESTS = 800   # per arm in the 60-minute window before any decision
 DROP_Z = -2.0        # an arm this far below the best of its list is removed
-PROMOTE_Z = 1.3      # a challenger this far above the champion over 60 minutes, and ahead in both half hours, is promoted
+PROMOTE_Z = 1.8      # a challenger this far above the champion over 60 minutes, and ahead in both half hours, is promoted
+QUEUE = rt.ROOT / "queue.toml"            # candidates waiting per list: schedule = [...], no_views = [...]
+QUEUE_STATE = rt.ROOT / "logs" / "queue_state.json"   # when each trial started, and the trials that are over
+TRIAL = 150          # minutes a queued candidate gets; then it stays only if it is ahead
+KEEP_Z = 0.5         # ... by this much over the whole trial
 GROUPS = {"schedule": ("main", "new_shopper"), "no_views": ("no_views",)}   # arms.toml list -> leaderboard routes it answers
 
 
@@ -63,6 +68,43 @@ def decide(cfg: dict, hour: list[dict], halves: list[list[dict]]) -> tuple[dict,
     return new, notes
 
 
+def advance(new: dict, notes: list[str], now: float) -> None:
+    """The queue: retire a trial that had its time without a lead, then start the next candidate when no trial runs in a list.
+    A promotion leaves the old champion in as the trial, so it gets a rematch."""
+    if not QUEUE.exists():
+        return
+    queue = tomllib.loads(QUEUE.read_text(encoding="utf-8"))
+    st = json.loads(QUEUE_STATE.read_text()) if QUEUE_STATE.exists() else {"started": {}, "done": []}
+    started, done = st["started"], st["done"]
+    long = None
+    for group, routes in GROUPS.items():
+        arms = new["schedule"] if group == "schedule" else new["routes"].setdefault(group, [])
+        if group == "schedule" and new["champion"] in started:   # promoted: the trial is now the other arm
+            del started[new["champion"]]
+            started.update({a: now for a in arms if a != new["champion"]})
+        for a in [a for a in arms if a in started and now - started[a] >= TRIAL * 60 and len(arms) > 1]:
+            long = long or evaluate.models(TRIAL, now)
+            stats = pooled(long, routes)
+            rest = [b for b in arms if b != a and b in stats]
+            ref = max(rest, key=lambda b: stats[b][1] / stats[b][0]) if rest else None
+            lead = z(stats[a], stats[ref]) if a in stats and ref else -9.0
+            if lead < KEEP_Z:
+                arms.remove(a)
+                notes.append(f"retired `{a}` from {group}: not ahead of `{ref}` after {TRIAL} minutes (z {lead:.1f})")
+        for a in [a for a in started if a not in new["schedule"] and not any(a in v for v in new["routes"].values())]:
+            del started[a]
+            done.append(a)
+        if not any(a in started for a in arms):
+            nxt = next((a for a in queue.get(group, []) if a not in done and a not in arms
+                        and (rt.ROOT / "src/q2q/strategies" / f"{a}.py").exists()), None)
+            if nxt:
+                arms.append(nxt)
+                started[nxt] = now
+                notes.append(f"started `{nxt}` in {group} from the queue, {TRIAL} minutes against {', '.join(a for a in arms if a != nxt)}")
+    QUEUE_STATE.parent.mkdir(exist_ok=True)
+    QUEUE_STATE.write_text(json.dumps(st))
+
+
 def write(cfg: dict) -> None:
     q = lambda arms: "[" + ", ".join(f'"{a}"' for a in arms) + "]"
     ARMS.write_text(f'''champion = "{cfg["champion"]}"
@@ -81,6 +123,8 @@ def once(apply: bool) -> None:
     now = time.time()
     hour, halves = evaluate.models(60, now), [evaluate.models(30, now - 1800), evaluate.models(30, now)]
     new, notes = decide(cfg, hour, halves)
+    if apply:
+        advance(new, notes, now)
     stamp = time.strftime("%d %b %H:%M", time.gmtime(now))
     print(f"{stamp} UTC | {'; '.join(notes) if notes else 'no change'}", flush=True)
     if apply:
@@ -92,8 +136,9 @@ def once(apply: bool) -> None:
                 f.writelines(f"- {stamp} · Operator: {n}.\n" for n in notes)
             for n in notes:   # the same news on the dashboard's Updates tab
                 name = n.split("`")[1]
-                note.add("champion" if n.startswith("promoted") else "dropped",
-                         f"{name} {'promoted to champion' if n.startswith('promoted') else 'dropped'} by the operator", f"Operator: {n.replace('`', '')}.", name)
+                kind, what = (("champion", "promoted to champion") if n.startswith("promoted") else
+                              ("live", "started from the queue") if n.startswith("started") else ("dropped", "taken off"))
+                note.add(kind, f"{name} {what} by the operator", f"Operator: {n.replace('`', '')}.", name)
 
 
 if __name__ == "__main__":
