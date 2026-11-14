@@ -2,7 +2,8 @@
 
     uv run --group dashboard streamlit run dashboard/app.py
 
-Now                       what is running: arms per kind of request, their traffic and live scores (board.py)
+Now                       the three newest updates, then what is running: arms per kind of request, their traffic and live scores (board.py)
+Updates                   the project's news feed, newest first: updates.jsonl plus a result per finished 30-minute window (updates.py)
 Leaderboard               our models per kind of request and every team, from the per-model leaderboard (leaderboard.py)
 Strategies                cards: tested, testing now, up next (board.py)
 Hypotheses and knowledge  what we know about the simulator (knowledge.toml) and the hypotheses behind it
@@ -22,6 +23,7 @@ import board
 import data
 import leaderboard
 import ui
+import updates
 from q2q import evaluate, rt
 
 ROOT = rt.ROOT
@@ -184,8 +186,13 @@ def safe(tab, body) -> None:
             st.warning(f"This view could not be built: {e}")
 
 
+def now() -> None:
+    updates.latest()
+    board.now()
+
+
 header()
-tabs = st.tabs(["Now", "Leaderboard", "Strategies", "Hypotheses and knowledge", "Plan and backlog", "Raw data"])
-for tab, body in zip(tabs, (board.now, leaderboard.leaderboard, board.strategies, learned, plan, raw)):
+tabs = st.tabs(["Now", "Updates", "Leaderboard", "Strategies", "Hypotheses and knowledge", "Plan and backlog", "Raw data"])
+for tab, body in zip(tabs, (now, updates.updates, leaderboard.leaderboard, board.strategies, learned, plan, raw)):
     safe(tab, body)
 board.show_pending()

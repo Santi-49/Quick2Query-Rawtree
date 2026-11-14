@@ -13,6 +13,8 @@ import tomllib
 
 from q2q import evaluate, rt
 
+import note   # scripts/note.py, next to this file
+
 ARMS = rt.ROOT / "arms.toml"
 MIN_REQUESTS = 800   # per arm in the 60-minute window before any decision
 DROP_Z = -2.0        # an arm this far below the best of its list is removed
@@ -88,6 +90,10 @@ def once(apply: bool) -> None:
             write(new)
             with open(rt.ROOT / "docs/JOURNAL.md", "a", encoding="utf-8", newline="\n") as f:
                 f.writelines(f"- {stamp} · Operator: {n}.\n" for n in notes)
+            for n in notes:   # the same news on the dashboard's Updates tab
+                name = n.split("`")[1]
+                note.add("champion" if n.startswith("promoted") else "dropped",
+                         f"{name} {'promoted to champion' if n.startswith('promoted') else 'dropped'} by the operator", f"Operator: {n.replace('`', '')}.", name)
 
 
 if __name__ == "__main__":

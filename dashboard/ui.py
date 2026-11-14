@@ -15,7 +15,9 @@ TAGS = {"Champion": ("diamond", YELLOW), "Testing now": ("dot", BLUE), "Tested":
         "Planned": ("ring", GREY), "Idea": ("ring", GREY),
         "now": ("dot", BLUE), "next": ("ring", BLUE), "later": ("ring", GREY), "done": ("square", GREY), "early": ("half", BLUE),
         "confirmed": ("dot", GREEN), "mixed": ("half", ORANGE), "rejected": ("cross", RED), "open": ("ring", BLUE),
-        "live": ("dot", GREEN), "history only": ("ring", ORANGE), "reversed live": ("cross", RED), "live views only": ("half", BLUE)}
+        "live": ("dot", GREEN), "history only": ("ring", ORANGE), "reversed live": ("cross", RED), "live views only": ("half", BLUE),
+        "Building": ("ring", BLUE), "Live traffic": ("dot", GREEN), "Result": ("square", BLUE), "New champion": ("diamond", YELLOW),
+        "Finding": ("half", ORANGE), "Dropped": ("cross", RED), "Operations": ("square", GREY)}
 WORDS = {"now": "Running now", "next": "Up next", "later": "Later", "done": "Done", "early": "Early reading",
          "confirmed": "Confirmed", "mixed": "Partly confirmed", "rejected": "Rejected", "open": "Open",
          "live": "Confirmed live", "history only": "History only", "reversed live": "Reversed live", "live views only": "Live views only"}
@@ -114,6 +116,17 @@ h3 {{font-size: 1.02rem !important; font-weight: 650 !important; padding: .9rem 
 .lv b {{font-size: .98rem; font-weight: 650}}
 .lv .who {{display: grid; grid-template-columns: minmax(0, 1fr) auto; font-size: .86rem; margin-top: 10px; row-gap: 4px}}
 .lv .who span small {{color: var(--muted)}}
+
+/* updates */
+.up {{background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px}}
+.up.champ {{border-color: {YELLOW}; border-left-width: 4px}}
+.up .uh {{display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: .76rem; color: var(--muted); font-variant-numeric: tabular-nums}}
+.up b {{display: block; font-size: .95rem; font-weight: 650; margin-top: 6px}}
+.up p {{font-size: .86rem !important; line-height: 1.5; margin: 2px 0 0 !important}}
+.up .who {{font-size: .78rem; color: var(--muted); margin-top: 4px}}
+.up .who span {{color: var(--text); text-transform: capitalize}}
+.ul {{font-size: .84rem; color: var(--muted); margin: 0 0 2px; font-variant-numeric: tabular-nums}}
+.ul b {{color: var(--text); font-weight: 600}}
 
 .stButton button {{min-height: 2.5rem; border-color: var(--border); transition: border-color .15s ease-out, background-color .15s ease-out}}
 .stButton button:focus-visible {{outline: 2px solid var(--blue); outline-offset: 2px}}
