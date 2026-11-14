@@ -1,4 +1,4 @@
-champion = "baseline"
-schedule = ["rules", "baseline"]            # one arm per 10-minute block, repeating, e.g. ["rules", "baseline"]; empty = champion always
+champion = "rules"
+schedule = ["rules2", "rules"]            # one arm per 10-minute block, repeating, e.g. ["rules", "baseline"]; empty = champion always
 explore_share = 0.03
 salt = "q2q-1"
