@@ -128,6 +128,106 @@ def teams(s: dict) -> None:
                "Other teams' models may answer only one kind of request, so a single model's number is not comparable with a whole-team number.")
 
 
+def rest(x: dict) -> tuple[float, int]:
+    """(conversion %, requests) of a team's requests that no listed model answered: late or fallback answers, backed out of the team total."""
+    vs = x.get("versions") or []
+    n = x["requests"] - sum(v["requests"] for v in vs)
+    if n <= 0:
+        return 0.0, 0
+    return max((x["conversion"] * x["requests"] - sum(v["conversion"] * v["requests"] for v in vs)) / n, 0.0), n
+
+
+def projected(s: dict, now: dict | None) -> None:
+    ui.html('<p class="line">Each team as if it froze what it runs right now: the final round scores the whole team on its final configuration.</p>')
+    if not now:
+        st.info("The last 15 minutes of the leaderboard are not available, so there is no current traffic split to project from.")
+        return
+    base, ref = s["baseline"]["conversion"], s["reference"]["conversion"]
+    window = {x["team_id"]: {v["model_version"]: v for v in x.get("versions") or []} for x in s["teams"]}
+    scored = {x["team_id"]: x["conversion"] for x in s["teams"]}
+    late = {x["team_id"]: rest(x) for x in s["teams"]}
+    as_rank = {t: i + 1 for i, t in enumerate(sorted(scored, key=scored.get, reverse=True))}
+    rows = []
+    for x in now["teams"]:
+        vs = [v for v in x.get("versions") or [] if v["requests"]]
+        total = x["requests"]
+        if not vs or not total or x["team_id"] not in scored:
+            continue
+        lw, ln = late[x["team_id"]] if late[x["team_id"]][1] else rest(x)  # late or fallback: window conversion, else the last 15 minutes
+        ws = [window[x["team_id"]].get(v["model_version"], v) for v in vs]
+        parts = [(v["requests"], w["conversion"], w["requests"]) for v, w in zip(vs, ws)]
+        parts.append((total - sum(v["requests"] for v in vs), lw, ln))
+        conv = var = 0.0
+        for k, p, n in parts:
+            share = k / total
+            if share <= 0:
+                continue
+            conv += share * p
+            var += share ** 2 * se(p, n)[0] ** 2 if n else 0
+        c = scored[x["team_id"]]
+        rows.append({"team": x["team_id"], "projected %": conv, "projected score": score(conv, base), "± score": 100 * math.sqrt(var) / evaluate.ORACLE_GAP,
+                     "as scored %": c, "as scored score": score(c, base), "difference": score(conv, base) - score(c, base),
+                     "models now": len(vs), "largest model now %": 100 * max(v["requests"] for v in vs) / total, "on time %": x.get("on_time", float("nan"))})
+    if not rows:
+        st.info("No team has models with requests in the last 15 minutes.")
+        return
+    t = pd.DataFrame(rows).sort_values("projected score", ascending=False).reset_index(drop=True)
+    t.insert(0, "rank", t.index + 1)
+    t["who"] = ["us" if x == rt.TEAM else "other teams" for x in t.team]
+    t["lo"], t["hi"] = t["projected score"] - t["± score"], t["projected score"] + t["± score"]
+    mine = t[t.team == rt.TEAM]
+    head = (f"Projected: we are {ordinal(int(mine['rank'].iloc[0]))} of {len(t)} · as scored: {ordinal(as_rank[rt.TEAM])}" if len(mine)
+            else f"Projected: we have no models in the last 15 minutes ({len(t)} teams)")
+    enc_y = alt.Y("team:N", sort=list(t.team), title=None)
+    tip = [alt.Tooltip("rank:Q"), alt.Tooltip("team:N"), alt.Tooltip("projected score:Q", format="+.1f"), alt.Tooltip("± score:Q", format=".1f"),
+           alt.Tooltip("as scored score:Q", format="+.1f"), alt.Tooltip("models now:Q")]
+    bars = alt.Chart(t).mark_bar(cornerRadiusEnd=3, height={"band": 0.75}).encode(
+        y=enc_y, x=alt.X("projected score:Q", title="Projected team score"),
+        color=alt.Color("who:N", scale=alt.Scale(domain=["us", "other teams"], range=[ui.BLUE, "#3A4766"]), legend=alt.Legend(orient="top", title=None)),
+        tooltip=tip)
+    err = alt.Chart(t).mark_rule(color=ui.TEXT, strokeWidth=1.5).encode(y=enc_y, x="lo:Q", x2="hi:Q", tooltip=tip)
+    chart = bars + err + rule(0, ui.MUTED, "baseline") + rule(score(ref, base), ui.YELLOW, f"reference {score(ref, base):+.0f}")
+    st.altair_chart(style(chart.properties(height=16 * len(t) + 50, title=head)), width="stretch")
+    number = lambda f: st.column_config.NumberColumn(format=f)
+    mark = lambda row: [f"background-color: rgba(86,180,233,.22); font-weight: 650" if row.team == rt.TEAM else ""] * len(row)
+    cols = ["rank", "team", "projected %", "projected score", "± score", "as scored %", "as scored score", "difference", "models now", "largest model now %", "on time %"]
+    st.dataframe(t[cols].style.apply(mark, axis=1), hide_index=True, width="stretch",
+                 column_config={"projected %": number("%.2f%%"), "projected score": number("%+.1f"), "± score": number("%.1f"), "as scored %": number("%.2f%%"),
+                                "as scored score": number("%+.1f"), "difference": number("%+.1f"), "largest model now %": number("%.0f%%"), "on time %": number("%.0f%%")})
+    st.caption("The traffic split is each team's requests per model in the last 15 minutes; each model's conversion comes from the selected window "
+               "(from the last 15 minutes if the model is not in it), and the projection is the split times those conversions, with ± one standard error. "
+               "Requests no listed model answered (mostly late answers, see on time %, which is for the last 15 minutes) count as one more row, "
+               "with the conversion left over from the team's total in the window. "
+               "A model started in the last minutes has a noisy conversion, and teams may still change their configuration before the final.")
+
+    st.markdown("### Us, if we froze the best arm per kind of request")
+    vs = list(window.get(rt.TEAM, {}).values())
+    total = sum(v["requests"] for v in vs)
+    if not total:
+        st.info("Our team has no reading in this window.")
+        return
+    best = []
+    for route, kind in data.ROUTES.items():
+        mine = [v for v in vs if (strategy.route_of(v["model_version"]) or "main") == route]
+        n = sum(v["requests"] for v in mine)
+        pool = [v for v in mine if v["requests"] >= 300]
+        if not pool:
+            continue
+        v = max(pool, key=lambda v: v["conversion"])
+        best.append({"kind": kind, "best arm": f"{v['model_version']} · {strategy.decode(v['model_version'])}", "requests": v["requests"],
+                     "conversion %": v["conversion"], "kind share %": 100 * n / total})
+    if not best:
+        st.info("None of our arms has 300 requests in this window.")
+        return
+    b = pd.DataFrame(best)
+    st.dataframe(b, hide_index=True, width="stretch",
+                 column_config={"requests": number("localized"), "conversion %": number("%.2f%%"), "kind share %": number("%.0f%%")})
+    covered = b["kind share %"].sum()
+    conv = (b["conversion %"] * b["kind share %"]).sum() / covered
+    left = "" if covered > 99.5 else f" (the kinds shown cover {covered:.0f}% of our requests; the rest has no arm with 300 requests)"
+    st.markdown(f"Frozen this way we would convert **{conv:.2f}%**, a score of **{score(conv, base):+.1f}**{left}.")
+
+
 @st.fragment(run_every=60)
 @board.guarded
 def leaderboard() -> None:
@@ -142,5 +242,11 @@ def leaderboard() -> None:
         st.warning("The leaderboard did not answer" + (", so the previous reading is shown." if s else f": {error}"))
     if not s:
         return
-    view = st.segmented_control("View", ["Our models", "All teams"], default="Our models", key="lb_view", label_visibility="collapsed") or "Our models"
-    (ours if view == "Our models" else teams)(s)
+    view = st.segmented_control("View", ["Projected final", "Our models", "All teams"], default="Projected final", key="lb_view", label_visibility="collapsed") or "Projected final"
+    if view == "Projected final":
+        now, error = data.state(15)
+        if error:
+            st.warning("The last 15 minutes did not answer" + (", so the previous reading is used." if now else f": {error}"))
+        projected(s, now)
+    else:
+        (ours if view == "Our models" else teams)(s)
