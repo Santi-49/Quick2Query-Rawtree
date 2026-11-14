@@ -53,3 +53,11 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 **14 Nov 18:28 UTC.** `ranker2` promoted to champion: ahead of rules4 on ordinary requests in three readings (2.09% and 1.92% against 1.80% and 1.16%), ahead on new shoppers in the last (2.42% against 1.71%). rules4 out; rules5 challenger on half (1.46% in its first window, above rules4, below ranker2). Team rank over 60 minutes: 14th at 17:20, 9th at 18:25.
 
 **14 Nov 18:50 UTC.** Santi away. Prod is self-sufficient on the VM: ranker2 champion, rules5 challenger, operator every 15 minutes. Work queued at the end of the backlog in `strategies.toml` (QUEUED 1–4): finish ranker3; H-drift, Santi's hypothesis that parameters we treat as fixed move over time; retraining without the laptop; Sunday freeze.
+
+## 14 Nov 21:12 UTC · rules5 off ordinary traffic, ranker2 alone
+- Live, 3 h to 21:00: ordinary requests ranker2 1.94% (8,284) vs rules5 1.58% (8,570); new shoppers 2.78% vs 2.63% (2 h). rules5 behind in every window since 17:20. `schedule = ["ranker2"]`.
+- Home stays split cold2 / ranker2: 0.55% vs 0.56% over 2 h, a tie.
+- ranker3 retest on data to 21:00 (holdout3, 552 purchases): tie again with ranker2 (ordinary top 3 +0.3 ± 1.8, new shoppers top 1 +3.7 ± 2.8, top 3 -0.5 ± 2.8). Not deployed.
+- Tried ranker4 = ranker2 with up to 3 of today's carts pinned on top. Replay: carted-today purchases top 1 63% vs 33%, but all purchases top 1 21% vs 36%: shoppers with carts today mostly buy something else. Rejected, file deleted. Carts today are 26% of purchases (144 of 552).
+- Laptop slept 19:47 to 20:57 UTC: ranker2 on the VM was the 19:34 model for 90 minutes. train2 restarted by itself.
+- Team: 11th of 42 over 60 min (+38.7), 9th over 3 h. Leaders team_06 +59, team_14 +57, team_03 +56 (one model, 2.19% on all traffic).
