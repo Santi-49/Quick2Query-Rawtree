@@ -1,6 +1,6 @@
 """History pulls from RawTree, cached under data/ (gitignored).
 
-    cached("product_stats")  -> rows of sql/features/product_stats.sql
+    cached("product_stats")  -> rows of sql/features/product_stats.sql (chunked when the SQL has {chunk})
     user_history()           -> CSR arrays of (user, product, views, buys, carts)
     pull()                   -> rebuild every cache
 """
@@ -13,7 +13,7 @@ import numpy as np
 from q2q import rt
 
 DATA = rt.ROOT / "data"
-FEATURES = ["product_stats", "segment_category"]
+FEATURES = ["product_stats", "segment_category", "coview"]
 CHUNKS = 16
 
 
@@ -25,7 +25,12 @@ def cached(name: str, refresh: bool = False) -> list[dict]:
     path = DATA / f"{name}.json"
     if path.exists() and not refresh:
         return json.loads(path.read_text(encoding="utf-8"))
-    rows = rt.query(sql(name))
+    text = sql(name)
+    if "{chunk}" in text:  # one query per hash chunk, as user_products
+        with ThreadPoolExecutor(4) as pool:
+            rows = [r for part in pool.map(lambda c: rt.query(text.replace("{chunk}", str(c)), timeout=60), range(CHUNKS)) for r in part]
+    else:
+        rows = rt.query(text)
     DATA.mkdir(exist_ok=True)
     path.write_text(json.dumps(rows), encoding="utf-8")
     return rows

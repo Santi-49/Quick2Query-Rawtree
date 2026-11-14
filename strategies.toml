@@ -125,3 +125,9 @@ summary = "rules2 reading the whole session: the first recent view leads (later 
 status = ""
 conclusion = "In test on a third of ordinary requests since 16:35 UTC. Evidence: the first view gets 2.4 times the clicks of later views at equal popularity; the session's main category beats the last view's category when they differ. Since 16:37 it also gives carted-not-bought products ×6 and no bonus to products only viewed: outside the session category a carted product gets 5.6 times the clicks, a viewed-only one 1.0."
 hypotheses = ["category-page", "session-shape", "reshow-rank", "slot-order", "view-age"]
+
+[strategies.ranker2]
+summary = "The ranker's 21 inputs plus phrase taste, session phrase overlap, carts, co-views, brand and subcategory shares, first view, main category and today's views; a click model times a purchase-given-click model."
+status = ""
+conclusion = "Offline, newest 20% of live feedback (trained 14 Nov evening, 2,325 clicks, 735 purchases): click AUC 0.833 against 0.756 for the ranker's 21 features; purchase-given-click AUC 0.696 against 0.483 for the fixed 0.81/0.27 rule. Of 206 held-out requests with a purchase, the purchased product is ranked first in 39% (ranker 34%) and in the top 3 in 74% (ranker 57%). Dry run on 300 live requests: 300/300 valid, 7.4 ms median, 10.3 ms p95."
+hypotheses = ["ml-signals", "session-shape", "reshow-rank", "home-ceiling"]

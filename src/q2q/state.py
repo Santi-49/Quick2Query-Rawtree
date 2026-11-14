@@ -57,6 +57,11 @@ class Shopper:
     viewed: dict[str, int]        # product -> history view count, only products not bought
     cat_share: dict[str, float]   # category -> share of the shopper's history views
     carted: dict[str, int] = field(default_factory=dict)  # product -> times added to the cart (history + today), only products not bought
+    phrase_share: dict[str, float] = field(default_factory=dict)  # phrase -> share of history views on products carrying it
+    brand_share: dict[str, float] = field(default_factory=dict)   # brand -> share of history views
+    sub_share: dict[str, float] = field(default_factory=dict)     # subcategory -> share of history views
+    cat_carts: dict[str, int] = field(default_factory=dict)       # category -> history add_to_cart events
+    cart_rate: float = 0.0        # history carts / history views (stands in for the share of sessions with a cart)
 
 
 def epoch(ts: str) -> float:
@@ -123,6 +128,7 @@ class State:
         self.trend: dict[str, float] = {}
         self.price_cut: dict[str, float] = {}
         self.segment: dict[tuple[str, str], dict[str, float]] = {}
+        self.coview: dict[str, dict[str, int]] = {}  # a -> b -> organic history views of b directly after a (n >= 3)
         self._base_price: dict[str, float] = {}
         self._inactive: set[str] = set()
         self._until: dict[str, float] = {}      # product -> epoch from which it may be shown (inf: out of stock)
@@ -187,6 +193,8 @@ class State:
         lap(f"trend {len(self.trend)} subcategories")
         self.segment = segment_from(data.cached("segment_category"))
         lap(f"segment lift {len(self.segment)} segments")
+        self.coview = {r["a"]: dict(zip(r["bs"], map(int, r["ns"]))) for r in data.cached("coview")}
+        lap(f"co-views {sum(map(len, self.coview.values()))} pairs from {len(self.coview)} products")
         now = time.time()
         self._next = {k: now + s for k, s in EVERY.items()}
         print(f"state: loaded in {time.time() - start:.1f}s")
@@ -339,12 +347,15 @@ class State:
         if i is None and not live and not carted:
             return None
         bought, viewed, cat_views = set(live), {}, {}
+        brand_views, sub_views, phrase_views, cat_carts, all_views, all_carts = {}, {}, {}, {}, 0, 0
         carts = self._hist.get("carts")
         if i is not None:
             lo, hi = self._hist["indptr"][i], self._hist["indptr"][i + 1]
             for k, v, b, c in zip(self._hist["prod"][lo:hi].tolist(), self._hist["views"][lo:hi].tolist(), self._hist["buys"][lo:hi].tolist(),
                                   carts[lo:hi].tolist() if carts is not None else [0] * (hi - lo)):
                 pid = self._hist_products[k]
+                all_views += v
+                all_carts += c
                 if c:
                     carted[pid] = carted.get(pid, 0) + c
                 if b:
@@ -352,7 +363,17 @@ class State:
                 elif v and pid not in live:
                     viewed[pid] = v
                 p = self.products.get(pid)
-                if v and p is not None:
+                if p is None:
+                    continue
+                if v:
                     cat_views[p.category] = cat_views.get(p.category, 0) + v
+                    brand_views[p.brand] = brand_views.get(p.brand, 0) + v
+                    sub_views[p.subcategory] = sub_views.get(p.subcategory, 0) + v
+                    for f in p.phrases:
+                        phrase_views[f] = phrase_views.get(f, 0) + v
+                if c:
+                    cat_carts[p.category] = cat_carts.get(p.category, 0) + c
         total = sum(cat_views.values())
-        return Shopper(bought, viewed, {c: n / total for c, n in cat_views.items()} if total else {}, {p: n for p, n in carted.items() if p not in bought})
+        share = (lambda d: {k: n / total for k, n in d.items()}) if total else (lambda d: {})
+        return Shopper(bought, viewed, share(cat_views), {p: n for p, n in carted.items() if p not in bought},
+                       share(phrase_views), share(brand_views), share(sub_views), cat_carts, all_carts / all_views if all_views else 0.0)
