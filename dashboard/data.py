@@ -1,28 +1,55 @@
 """Everything the dashboard reads, and how card statuses are derived. No drawing here.
 
-Sources: RawTree (cached 20 s), the per-model leaderboard (cached 60 s), arms.toml, strategies.toml, knowledge.toml,
+Sources: RawTree (cached 30 s), the per-model leaderboard (each window at most once per 60 s, finished windows once), arms.toml, strategies.toml, knowledge.toml,
 docs/SIMULATOR.md, docs/hypotheses/, sql/hypotheses/ and the strategy files. The files are read on every render,
 because other agents edit them while the dashboard runs; a file caught half-written keeps its last good reading.
 """
 import ast
+import importlib
 import math
 import re
 import time
 import tomllib
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 import streamlit as st
 
-from q2q import evaluate, rt, serve
-from q2q.strategy import decode, label
+from q2q import evaluate, rt, serve, strategy
 
 ROOT = rt.ROOT
 ROUTES = {"main": "ordinary", "new_shopper": "new shopper", "no_views": "no recent views"}
 ROUTE_HELP = {"main": "returning shopper with recent views", "new_shopper": "new shopper with recent views", "no_views": "the home page"}
+KINDS = {**ROUTES, "all": "all kinds", "mixed": "all kinds, before the split"}  # every kind of request a score can be read on
 GROUPS = ("tested", "testing", "next")
+SPAN = 10800                      # the longest leaderboard window, in seconds
 _good: dict[str, dict] = {}       # last good parse per toml file
-_windows: dict[int, list] = {}    # finished 15-minute leaderboard windows, by end time
+_windows: dict[tuple[int, int], list] = {}   # finished leaderboard windows, by (minutes, end time)
+
+
+_code: dict[str, float] = {}      # file time of the router modules as loaded here
+
+
+def fresh_code(force: bool = False) -> None:
+    """The dashboard outlives edits to the router's code (a new strategy gets its public name in strategy.py).
+    Streamlit only reloads files next to app.py, so reload these two when their file changed."""
+    for module in (strategy, evaluate):
+        t = Path(module.__file__).stat().st_mtime
+        if force or _code.get(module.__name__, t) != t:
+            try:
+                importlib.reload(module)
+            except Exception:
+                continue
+        _code[module.__name__] = t
+
+
+fresh_code(force=True)
+
+
+def label(name: str, route: str = "") -> str:
+    """Public name of a strategy, the one on the leaderboard."""
+    return strategy.label(name, route)
 
 
 def stamp() -> str:
@@ -30,7 +57,7 @@ def stamp() -> str:
 
 
 # ---------- RawTree and the leaderboard ----------
-@st.cache_data(ttl=20, show_spinner=False)
+@st.cache_data(ttl=30, show_spinner=False)
 def q(sql: str) -> pd.DataFrame:
     return pd.DataFrame(rt.query(sql))
 
@@ -39,45 +66,71 @@ def report(name: str) -> pd.DataFrame:
     return q((ROOT / "sql" / "reports" / f"{name}.sql").read_text(encoding="utf-8"))
 
 
+def _kind(arm: str, version: str) -> str:
+    """Kind of request a model_version was scored on. Labels from before the split by kind (15:50 UTC) mix all kinds."""
+    if arm == "explore":
+        return "all"
+    if "-" in version.split("@")[0]:
+        return next((r for r, suffix in strategy.ROUTES.items() if suffix and version.split("@")[0].endswith(suffix)), "mixed")
+    return "main" if version in strategy.PUBLIC.values() else "mixed"
+
+
 def _per_route(rows: list[dict]) -> pd.DataFrame:
-    """Leaderboard rows -> one row per strategy and route (a strategy may have had several public names)."""
+    """Leaderboard rows -> one row per strategy and kind of request. Several windows or public names add up:
+    conversion is purchases over requests, the score is the mean of the window scores weighted by requests."""
     b = pd.DataFrame(rows)
     if b.empty:
         return pd.DataFrame(columns=["arm", "route", "requests", "conversion", "score", "labels", "baseline", "reference", "window_end"])
-    b["buys"] = b.conversion * b.requests
-    g = b.groupby(["arm", "route"], as_index=False).agg(requests=("requests", "sum"), buys=("buys", "sum"), labels=("label", ", ".join),
-                                                        baseline=("baseline", "first"), reference=("reference", "first"), window_end=("window_end", "first"))
-    g["conversion"] = g.buys / g.requests
-    g["score"] = 100 * (g.conversion - g.baseline) / evaluate.ORACLE_GAP
+    b["route"] = [_kind(a, v) for a, v in zip(b.arm, b.label)]
+    b["buys"], b["points"] = b.conversion * b.requests, b.score * b.requests
+    g = b.groupby(["arm", "route"], as_index=False).agg(requests=("requests", "sum"), buys=("buys", "sum"), points=("points", "sum"),
+                                                        labels=("label", lambda x: ", ".join(dict.fromkeys(x))),
+                                                        baseline=("baseline", "last"), reference=("reference", "last"), window_end=("window_end", "max"))
+    g["conversion"], g["score"] = g.buys / g.requests, g.points / g.requests
     return g
 
 
 @st.cache_data(ttl=60, show_spinner=False)
 def board(minutes: int) -> pd.DataFrame:
-    """Per strategy and route in the last `minutes`, straight from the per-model leaderboard."""
+    """Per strategy and kind of request in the last `minutes`, straight from the per-model leaderboard."""
     return _per_route(evaluate.models(minutes))
 
 
-def _window(end: int) -> list[dict]:
-    if end not in _windows:
+def _window(minutes: int, end: int) -> list[dict]:
+    """One finished window, asked for once and kept."""
+    if (minutes, end) not in _windows:
         try:
-            _windows[end] = evaluate.models(15, end)
+            _windows[minutes, end] = evaluate.models(minutes, end)
         except Exception:
             return []
-    return _windows[end]
+    return _windows[minutes, end]
 
 
 @st.cache_data(ttl=60, show_spinner=False)
 def history(n: int = 8) -> pd.DataFrame:
-    """Score per strategy and route in each of the last n finished 15-minute windows. Finished windows are kept."""
-    last = math.floor(time.time() / 900) * 900
-    ends = [last - 900 * k for k in range(n)]
+    """Score per strategy and kind of request in each of the last n finished 15-minute windows."""
+    last = math.floor((time.time() - 60) / 900) * 900
     with ThreadPoolExecutor(4) as pool:
-        parts = [_per_route(rows) for rows in pool.map(_window, ends)]
-    out = pd.concat(parts, ignore_index=True)
-    for e in [e for e in _windows if e < last - 900 * 24]:
-        del _windows[e]
-    return out
+        parts = [_per_route(rows) for rows in pool.map(lambda e: _window(15, e), [last - 900 * k for k in range(n)])]
+    for key in [k for k in _windows if k[0] == 15 and k[1] < last - 900 * 24]:
+        del _windows[key]
+    return pd.concat(parts, ignore_index=True)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def whole_run() -> pd.DataFrame:
+    """Per strategy and kind of request since we started serving: finished 3-hour windows plus the stretch up to now."""
+    now = math.floor(time.time() / 300) * 300
+    start = math.floor(evaluate.epoch(evaluate.START) / SPAN) * SPAN
+    ends = list(range(start + SPAN, now + 1, SPAN))
+    rows = [r for e in ends for r in _window(SPAN // 60, e)]
+    tail = (now - (ends[-1] if ends else start)) // 60
+    if tail >= 15:
+        try:
+            rows += evaluate.models(tail, now)
+        except Exception:
+            pass
+    return _per_route(rows)
 
 
 def live() -> pd.DataFrame:
@@ -86,7 +139,7 @@ def live() -> pd.DataFrame:
     if df.empty:
         return df
     df["model_version"] = df.model_version.fillna("")
-    df["strategy"] = df.model_version.map(lambda m: decode(m) if m else "")
+    df["strategy"] = df.model_version.map(lambda m: strategy.decode(m) if m else "")
     df["route"] = [("no_views" if not v else "new_shopper" if n else "main") for v, n in zip(df.views, df.new_shopper)]
     return df
 
@@ -108,6 +161,7 @@ def _toml(name: str) -> dict:
 
 
 def arms() -> dict:
+    fresh_code()
     return {**serve.DEFAULTS, **_toml("arms.toml")}
 
 
@@ -116,10 +170,47 @@ def registry() -> dict:
     return {"strategies": reg.get("strategies", {}), "plan": reg.get("plan", []), "backlog": reg.get("backlog", [])}
 
 
+EVIDENCE = ("live", "reversed live", "early", "history only", "live views only")  # firmest first
+
+
 def knowledge() -> dict:
+    """Factors seen on live purchases or clicks first, then the weaker evidence; inside each, the largest effect first."""
     k = _toml("knowledge.toml")
+    firm = lambda f: f.get("evidence") not in EVIDENCE[:2]
     weight = lambda f: abs(math.log(max(float(f.get("size", 1)), 1e-6)))
-    return {"factors": sorted(k.get("factor", []), key=weight, reverse=True), "no_effect": k.get("no_effect", [])}
+    return {"factors": sorted(k.get("factor", []), key=lambda f: (firm(f), -weight(f))),
+            "no_effect": k.get("no_effect", []), "lessons": k.get("lessons", [])}
+
+
+def planned(cfg: dict) -> dict[str, dict[str, float]]:
+    """Kind of request -> strategy -> the share of that kind arms.toml gives it, in % (the rule of serve.arm_for)."""
+    explore = 100 * float(cfg.get("explore_share", 0))
+    out = {}
+    for route, names in serving(cfg).items():
+        out[route] = {n: (100 - explore) / len(names) for n in names}
+        if explore:
+            out[route]["explore"] = explore
+    return out
+
+
+def observed(df: pd.DataFrame) -> dict[str, dict[str, float]]:
+    """Kind of request -> strategy -> share of that kind's requests it answered in the last 5 minutes, in %."""
+    out = {}
+    for route in ROUTES:
+        part = df[df.route == route] if not df.empty else df
+        out[route] = (100 * part[part.strategy != ""].strategy.value_counts() / len(part)).to_dict() if len(part) else {}
+    return out
+
+
+def plan_state(when: str) -> str:
+    """"16:35–17:35" (UTC, today) -> done, now or next. Anything else is later."""
+    m = re.fullmatch(r"\s*(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})\s*", str(when))
+    if not m:
+        return "later"
+    a, b, c, d = map(int, m.groups())
+    t = time.gmtime()
+    now, start, end = t.tm_hour * 60 + t.tm_min, a * 60 + b, c * 60 + d
+    return "done" if now >= end else "now" if now >= start else "next"
 
 
 def serving(cfg: dict) -> dict[str, list[str]]:
