@@ -61,12 +61,21 @@ Add a line for every new strategy. Spare words: agate, onyx, shale."""
 OLD = {"baseline": "coca", "explore": "xuixo", "rules": "mato", "rules2": "romesco", "rules3": "fideua", "cold1": "panellet"}
 
 
-def label(name: str) -> str:
-    return PUBLIC.get(name) or "m" + hashlib.sha1(("q2q" + name).encode()).hexdigest()[:5]
+ROUTES = {"": "", "no_views": "-h", "new_shopper": "-n"}
+"""Suffix per kind of request, so the per-model leaderboard compares arms on the same kind of request."""
+
+
+def label(name: str, route: str = "") -> str:
+    return (PUBLIC.get(name) or "m" + hashlib.sha1(("q2q" + name).encode()).hexdigest()[:5]) + ROUTES[route]
 
 
 def decode(model_version: str) -> str:
     """Strategy name behind a model_version, in any of the forms we have sent."""
-    code = model_version.split("@")[0]
+    code = model_version.split("@")[0].split("-")[0]
     names = list(PUBLIC) + [f.stem for f in (Path(__file__).parent / "strategies").glob("*.py")]
     return next((n for n in names if code in (PUBLIC.get(n), OLD.get(n), "m" + hashlib.sha1(("q2q" + n).encode()).hexdigest()[:5])), code)
+
+
+def route_of(model_version: str) -> str:
+    suffix = "-" + model_version.split("-")[1] if "-" in model_version else ""
+    return next((r for r, s in ROUTES.items() if s == suffix), "")

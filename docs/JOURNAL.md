@@ -20,3 +20,7 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - 14 Nov 15:40 · Block length stays 10 minutes while we read the one-hour window by subtraction. It moves to 15 minutes once we can read the 15-minute window directly.
 - 14 Nov 15:55 · Public model names are minerals, approved by Santi (`strategy.PUBLIC`).
 - 14 Nov 15:40 · **`rules3` dropped.** Two blocks at +19.2 and +19.3 against +25.4 for `rules2`. The steeper favourite-category effect hurts when the shopper has recent views. `rules2` runs alone, so `cold1` on home requests is the only thing alternating.
+- 14 Nov 15:50 · **The leaderboard now scores each model directly**, for any window from 15 minutes to 3 hours (`/api/state?by=model&from=&to=`, found on the page's change list). `q2q board [minutes]` reads it. This replaces the block subtraction as the decision metric.
+- 14 Nov 15:50 · **Arms now split shoppers by hash at the same time**, not by 10-minute block: the direct reading needs no time blocks, and a simultaneous split removes drift. Labels carry a route suffix (`-h` no views, `-n` new shopper) so arms are compared on the same kind of request.
+- 14 Nov 15:50 · Direct reading, last hour: `rules2` 1.68–1.71% (score 32), `rules3` about 1.4%, `rules` 0.87%, baseline 0.74%, reference 2.13%. Confirms dropping `rules3`.
+- 14 Nov 15:50 · `scripts/site_changes.py` tracks the organisers' change list into `docs/EVENT_CHANGES.md`.

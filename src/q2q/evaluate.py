@@ -9,13 +9,17 @@ D(t) = S_us(t) - S_baseline(t) and S = conversion * requests / 100:
     L(t) = D(t) - D(t - 10 min) + L(t - 60 min),   L = 0 for blocks ending at or before START.
 """
 import math
+import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
+import requests
+
 from q2q import rt
-from q2q.strategy import decode
+from q2q.strategy import decode, route_of
 
 START = "2026-11-14 13:26:35"  # until then we served the baseline list
+STATE_URL = "https://datathon.rawtree.dev/api/state"
 ORACLE_GAP = 2.95  # oracle minus baseline, in conversion points
 OFFSET, BLOCK = 395, 600  # refreshes land 395 s past each 600 s epoch boundary
 MAX_JITTER = 90  # a refresh further than this from its slot time does not count
@@ -179,3 +183,27 @@ def report(start: str = START, write: bool = False) -> None:
         if new:
             rt.insert("scratch", new)
         print(f"\nwrote {len(new)} new block rows to scratch")
+
+
+def models(minutes: int = 60, end: float | None = None) -> list[dict]:
+    """Our model_versions in one leaderboard window, read directly (the by-model view, windows of 15 to 180 minutes).
+
+    Arms on the same route saw the same kind of requests at the same time, so their conversions compare directly."""
+    to = math.floor((end or time.time()) / 300) * 300
+    s = requests.get(STATE_URL, params={"by": "model", "from": to - 60 * minutes, "to": to}, timeout=20).json()
+    us = next(t for t in s["teams"] if t["team_id"] == rt.TEAM)
+    base = s["baseline"]["conversion"]
+    out = [{"arm": decode(v["model_version"]), "route": route_of(v["model_version"]) or "main", "label": v["model_version"],
+            "requests": v["requests"], "conversion": v["conversion"], "cold_conversion": v.get("cold_conversion"),
+            "score": 100 * (v["conversion"] - base) / ORACLE_GAP, "baseline": base, "reference": s["reference"]["conversion"],
+            "window_end": iso(s["window"][1])} for v in us.get("versions", [])]
+    return sorted(out, key=lambda r: (r["route"], -r["requests"]))
+
+
+def models_report(minutes: int = 60) -> None:
+    rows = models(minutes)
+    if rows:
+        print(f"window {minutes} min to {rows[0]['window_end']} UTC   baseline {rows[0]['baseline']:.2f}%   reference {rows[0]['reference']:.2f}%")
+    print(f"{'route':>12} {'arm':>10} {'label':>10} {'reqs':>6} {'conv %':>7} {'cold %':>7} {'score':>6}")
+    for r in rows:
+        print(f"{r['route']:>12} {r['arm']:>10} {r['label'][:10]:>10} {r['requests']:>6} {r['conversion']:>7.2f} {_f(r['cold_conversion'], '.2f', 7)} {r['score']:>+6.1f}")

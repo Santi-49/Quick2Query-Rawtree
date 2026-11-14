@@ -40,15 +40,11 @@ def test_explore_share_close_and_stable():
     assert serve.arm_for(req("u_1"), {**CFG, "explore_share": 0}) == "baseline"
 
 
-def test_block_arm_switches_at_x6_35():
-    cfg = {**CFG, "explore_share": 0, "schedule": ["rules", "baseline"]}
-    boundary = epoch("2026-11-14 13:16:35")
-    before = serve.arm_for(req(ts=boundary - 0.01), cfg)
-    after = serve.arm_for(req(ts=boundary + 0.01), cfg)
-    later = serve.arm_for(req(ts=boundary + 600.01), cfg)
-    assert before != after and after != later and {before, after} == {"rules", "baseline"}
-    assert serve.arm_for(req(ts=boundary + 599.9), cfg) == after
-    assert serve.arm_for(req(ts=epoch("2026-11-14 13:26:34.99")), cfg) == after
+def test_arms_split_shoppers_evenly_and_stably():
+    cfg = {**CFG, "explore_share": 0.0, "schedule": ["a", "b"]}
+    arms = [serve.arm_for(req(user=f"u{i}"), cfg) for i in range(20000)]
+    assert 0.48 < arms.count("a") / len(arms) < 0.52
+    assert serve.arm_for(req(user="u7"), cfg) == serve.arm_for(req(user="u7", ts=1794669999.0), cfg)
 
 
 def test_answer_guards_and_labels():
@@ -69,4 +65,4 @@ def test_cold_routes_take_requests_before_the_schedule():
     new.views, new.is_new_user = ["p"], True
     assert serve.arm_for(home, cfg) in ("h1", "h2")
     assert serve.arm_for(new, cfg) == "x"
-    assert {serve.arm_for(req(ts=1794662462.0 + 600 * i), cfg) for i in range(2)} == {"h1", "h2"}
+    assert {serve.arm_for(req(user=f"u{i}"), cfg) for i in range(50)} == {"h1", "h2"}

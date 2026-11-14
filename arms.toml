@@ -1,8 +1,8 @@
 champion = "rules2"
-schedule = []            # one arm per 10-minute block, repeating, e.g. ["rules", "baseline"]; empty = champion always
+schedule = []            # arms for ordinary requests; several arms split the shoppers evenly; empty = champion
 explore_share = 0.03
 salt = "q2q-1"
 
-[routes]                 # cold requests get their own arms; a list alternates per block; empty = the schedule above
-no_views = ["cold1", "cold1", "rules2", "rules2"]            # no recent views: the home page
-new_shopper = []         # new shopper with recent views
+[routes]                 # cold requests get their own arms; a list splits the shoppers evenly; empty = as above
+no_views = ["cold1", "rules2"]   # no recent views: the home page
+new_shopper = []                 # new shopper with recent views

@@ -55,25 +55,31 @@ def bucket(user_id: str, salt: str) -> float:
     return int(hashlib.sha1((user_id + salt).encode()).hexdigest()[:8], 16) / 2**32
 
 
+def route_for(req: Request) -> str:
+    return "no_views" if not req.views else "new_shopper" if req.is_new_user else ""
+
+
 def arm_for(req: Request, cfg: dict) -> str:
-    """Explore share first; then the cold route that fits the request, if it has arms; then the block schedule."""
+    """Explore share first; then the arms of the request's route, else the schedule, else the champion.
+
+    Several arms split the shoppers evenly by a hash, all at the same time: the per-model leaderboard
+    reads each arm directly, so no time blocks are needed."""
     if bucket(req.user_id, cfg["salt"]) < cfg["explore_share"]:
         return "explore"
-    route = "no_views" if not req.views else "new_shopper" if req.is_new_user else ""
-    arms = cfg["routes"].get(route) or cfg["schedule"] or [cfg["champion"]]
-    return arms[int((req.ts - BLOCK_START) // 600) % len(arms)]
+    arms = cfg["routes"].get(route_for(req)) or cfg["schedule"] or [cfg["champion"]]
+    return arms[int(bucket(req.user_id, cfg["salt"] + "/arm") * len(arms))]
 
 
 def answer(req: Request, cfg: dict, state, get, sha: str) -> tuple[list[str], str]:
     """10 items and the model_version for one request. Never raises."""
     strategy = get(arm_for(req, cfg))
     try:
-        return guard(strategy.recommend(req, state), state), label(strategy.name)
+        return guard(strategy.recommend(req, state), state), label(strategy.name, "" if req.log else route_for(req))
     except Exception as e:
         say(f"strategy {strategy.name} failed: {e!r}", key=strategy.name)
         with _lock:
             stats["errors"] += 1
-        return guard([], state), label("baseline")
+        return guard([], state), label("baseline", route_for(req))
 
 
 class Arms:
