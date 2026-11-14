@@ -28,3 +28,4 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - 14 Nov 16:10 · Explore share raised from 3% to 5%: the ranker needs outcomes on products the champion does not show.
 - 14 Nov 16:10 · From now on several challengers run at the same time on slices of shoppers, each read directly on the per-model leaderboard.
 - 14 Nov 16:20 · First split readings, 30-minute window: on requests without views `cold1` 0.45% and `rules2` 0.53% over about 350 requests each, no difference yet and both near the baseline. New shoppers with views convert at 2.28% on `rules2` (740 requests), ordinary returning shoppers at 1.64%. `ranker` 2.18% on its first 122 requests, too few to rank.
+- 14 Nov 16:30 · **Practice traffic goes to learning, not to the champion** (Santi). The champion keeps only the share it needs as a control, one equal slice. `ranker` raised to 50% of ordinary requests. The final is the only time the champion runs nearly alone.

@@ -1,5 +1,5 @@
 champion = "rules2"
-schedule = ["rules2", "rules2", "rules2", "ranker"]   # arms for ordinary requests; several arms split the shoppers evenly; empty = champion
+schedule = ["rules2", "ranker"]   # arms for ordinary requests; several arms split the shoppers evenly; empty = champion
 explore_share = 0.05
 salt = "q2q-1"
 
