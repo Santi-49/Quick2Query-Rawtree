@@ -75,7 +75,7 @@ def advance(new: dict, notes: list[str], now: float) -> None:
         return
     queue = tomllib.loads(QUEUE.read_text(encoding="utf-8"))
     st = json.loads(QUEUE_STATE.read_text()) if QUEUE_STATE.exists() else {"started": {}, "done": []}
-    started, done = st["started"], st["done"]
+    started, done, zs, runs = st["started"], st["done"], st.setdefault("z", {}), st.setdefault("runs", {})
     long = None
     for group, routes in GROUPS.items():
         arms = new["schedule"] if group == "schedule" else new["routes"].setdefault(group, [])
@@ -88,6 +88,7 @@ def advance(new: dict, notes: list[str], now: float) -> None:
             rest = [b for b in arms if b != a and b in stats]
             ref = max(rest, key=lambda b: stats[b][1] / stats[b][0]) if rest else None
             lead = z(stats[a], stats[ref]) if a in stats and ref else -9.0
+            zs[a] = lead
             if lead < KEEP_Z:
                 arms.remove(a)
                 notes.append(f"retired `{a}` from {group}: not ahead of `{ref}` after {TRIAL} minutes (z {lead:.1f})")
@@ -95,12 +96,17 @@ def advance(new: dict, notes: list[str], now: float) -> None:
             del started[a]
             done.append(a)
         if not any(a in started for a in arms):
-            nxt = next((a for a in queue.get(group, []) if a not in done and a not in arms
-                        and (rt.ROOT / "src/q2q/strategies" / f"{a}.py").exists()), None)
+            ready = [a for a in queue.get(group, []) if a not in arms and (rt.ROOT / "src/q2q/strategies" / f"{a}.py").exists()]
+            fresh = [a for a in ready if a not in done]
+            again = [a for a in ready if a in done and zs.get(a, -2.0) > -1.5]   # queue empty: rematch what did not clearly lose
+            again = sorted((a for a in again if a != done[-1] or len(again) == 1),   # not the same one twice in a row if there is a choice
+                           key=lambda a: (runs.get(a, 1), -zs.get(a, -2.0)))         # fewest trials first, then the best lead
+            nxt = (fresh or again or [None])[0]
             if nxt:
                 arms.append(nxt)
                 started[nxt] = now
-                notes.append(f"started `{nxt}` in {group} from the queue, {TRIAL} minutes against {', '.join(a for a in arms if a != nxt)}")
+                runs[nxt] = runs.get(nxt, 0) + 1
+                notes.append(f"started `{nxt}` in {group} from the queue ({'trial' if fresh else 'rematch'} {runs[nxt]}), {TRIAL} minutes against {', '.join(a for a in arms if a != nxt)}")
     QUEUE_STATE.parent.mkdir(exist_ok=True)
     QUEUE_STATE.write_text(json.dumps(st))
 
