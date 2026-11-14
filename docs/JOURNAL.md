@@ -18,3 +18,4 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - 14 Nov 15:40 · **Cold requests get their own arms.** `arms.toml` has `[routes]`: `no_views` (home page) and `new_shopper`. First cold strategy `cold1` for requests without recent views: best-seller counts as base, the shopper's favourite category as a power law, viewed-not-bought ×4, segment. It runs two blocks on, two off, so it is not confounded with the `rules3`/`rules2` alternation.
 - 14 Nov 15:40 · Public model names are now unrelated Catalan food words (`strategy.PUBLIC`).
 - 14 Nov 15:40 · Block length stays 10 minutes while we read the one-hour window by subtraction. It moves to 15 minutes once we can read the 15-minute window directly.
+- 14 Nov 15:55 · Public model names are minerals, approved by Santi (`strategy.PUBLIC`).

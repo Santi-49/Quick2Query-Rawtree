@@ -54,10 +54,11 @@ def guard(items: list[str], state) -> list[str]:
     return out
 
 
-PUBLIC = {"baseline": "coca", "explore": "xuixo", "rules": "mato", "rules2": "romesco", "rules3": "fideua",
-          "cold1": "panellet", "ranker": "escudella"}
+PUBLIC = {"baseline": "quartz", "explore": "mica", "rules": "flint", "rules2": "slate", "rules3": "basalt",
+          "cold1": "opal", "ranker": "jasper"}
 """Public model_version per strategy: other teams see it on the leaderboard, so it is a word that says nothing.
-Add a line for every new strategy. Spare words: calcot, allioli, carquinyoli, trinxat, suquet, esqueixada."""
+Add a line for every new strategy. Spare words: agate, onyx, shale."""
+OLD = {"baseline": "coca", "explore": "xuixo", "rules": "mato", "rules2": "romesco", "rules3": "fideua", "cold1": "panellet"}
 
 
 def label(name: str) -> str:
@@ -68,4 +69,4 @@ def decode(model_version: str) -> str:
     """Strategy name behind a model_version, in any of the forms we have sent."""
     code = model_version.split("@")[0]
     names = list(PUBLIC) + [f.stem for f in (Path(__file__).parent / "strategies").glob("*.py")]
-    return next((n for n in names if code in (PUBLIC.get(n), "m" + hashlib.sha1(("q2q" + n).encode()).hexdigest()[:5])), code)
+    return next((n for n in names if code in (PUBLIC.get(n), OLD.get(n), "m" + hashlib.sha1(("q2q" + n).encode()).hexdigest()[:5])), code)
