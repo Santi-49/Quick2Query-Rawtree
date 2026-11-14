@@ -16,7 +16,7 @@ hypotheses = ["last-view", "session-intent", "no-rebuy", "context-effects"]
 [strategies.rules2]
 summary = "The same rules with every weight re-measured on live feedback: recent views ×12, same category ×4.5, a past view ×3, favourite category far heavier."
 status = ""
-conclusion = "Champion since 15:08 UTC. About 1.65–1.70% conversion, score near 32."
+conclusion = "Champion from 15:08 to 16:35 UTC at about 1.3–1.7% on ordinary requests. Now the control arm against ranker and rules4."
 hypotheses = ["live-factors"]
 
 [strategies.rules3]
@@ -27,14 +27,14 @@ hypotheses = ["home-personal"]
 
 [strategies.cold1]
 summary = "For requests with no recent views. Best-seller counts as base, then the shopper's favourite category, products viewed and not bought, and the segment of device and region."
-status = ""
-conclusion = "In test against rules2 on home-page requests."
+status = "retired"
+conclusion = "Retired at 16:35 UTC: 0.29–0.40% on home requests, no better than rules2 there. Its bonus for viewed products was mostly noise; the real signal is the cart (cold2)."
 hypotheses = ["home-personal", "cold-prior"]
 
 [strategies.ranker]
 summary = "Gradient-boosted trees (LightGBM) trained on our own live feedback, 21 inputs, retrained every 20 minutes. Predicts the click, then weights by the chance a click becomes a purchase."
 status = ""
-conclusion = "In test on 25% of ordinary requests since 16:10 UTC. Offline AUC 0.777 against 0.710 for the slot alone."
+conclusion = "Champion since 16:35 UTC. Ahead of rules2 in two 30-minute windows: 1.54% against 1.29% on returning shoppers (1,270 and 1,584 requests), 2.41% against 2.29% on new shoppers."
 hypotheses = ["live-factors", "ml-signals"]
 
 [strategies.explore]
@@ -45,18 +45,13 @@ hypotheses = ["cross-category", "novelty"]
 
 # The next windows, 15 minutes each (the shortest the leaderboard reads). Edited by hand or by the operator.
 [[plan]]
-when = "16:15–16:45"
-what = "ranker 25% against rules2 on ordinary requests; cold1 50% against rules2 on requests without views"
-decide = "Drop cold1 if it is behind rules2-h over 300 requests each. Keep ranker running: it retrains every 20 minutes."
+when = "16:35–17:35"
+what = "ranker, rules2 and rules4 on a third of ordinary requests each; cold2 against rules2 on home requests"
+decide = "rules4 replaces rules2 as the rule-based arm if ahead in two 30-minute windows. cold2 takes all home requests if ahead of rules2 over 500 requests each."
 
 [[plan]]
-when = "16:45–17:15"
-what = "ranker against rules2, second reading after two retrains"
-decide = "Raise ranker to 50% if within 3 points of rules2, drop to 10% if more than 8 behind."
-
-[[plan]]
-when = "17:15–18:00"
-what = "category-page variant of rules2; wide-feature ranker if the ML study delivers new signals"
+when = "17:35–19:00"
+what = "ranker v2 with the signals of the wide-feature study (phrase affinity, carts, co-views) and a purchase model"
 decide = "Promote whichever beats the champion in two consecutive 30-minute windows."
 
 [[plan]]
@@ -66,9 +61,9 @@ decide = "Challengers together hold at most half of the traffic."
 
 # Ideas not implemented yet.
 [[backlog]]
-idea = "Category pages"
-why = "They convert less than half as well as product pages. Largest known leak."
-hypothesis = "live-factors"
+idea = "Carts in the session strategies and the ranker"
+why = "Carted-not-bought products convert at 0.84–1.06% per weighted impression on product and category pages too."
+hypothesis = "home-ceiling"
 size = "small"
 
 [[backlog]]
@@ -118,3 +113,15 @@ idea = "Bandit over strategies"
 why = "Automatic traffic allocation instead of fixed shares."
 hypothesis = ""
 size = "medium"
+
+[strategies.cold2]
+summary = "For requests with no recent views. Best sellers × the shopper's category by rank (1 / 0.3 / 0.1) × segment; history carts ×5 (×10 if carted twice) and products viewed today ×4 once the state holds them; a viewed product only ×1.5."
+status = ""
+conclusion = "In test on half of home requests since 16:35 UTC, with carts and today's views now in the live state. Carted-not-bought products made 16 of 24 home purchases of returning shoppers; expected home conversion about 1.0–1.2% against 0.4% now."
+hypotheses = ["home-ceiling", "home-personal"]
+
+[strategies.rules4]
+summary = "rules2 reading the whole session: the first recent view leads (later views, the last one included, count 5 instead of 12) and the session's category is the one with most views, not the last view's."
+status = ""
+conclusion = "In test on a third of ordinary requests since 16:35 UTC. Evidence: the first view gets 2.4 times the clicks of later views at equal popularity; the session's main category beats the last view's category when they differ."
+hypotheses = ["category-page", "session-shape", "reshow-rank", "slot-order", "view-age"]

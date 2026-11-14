@@ -1,7 +1,7 @@
 """History pulls from RawTree, cached under data/ (gitignored).
 
     cached("product_stats")  -> rows of sql/features/product_stats.sql
-    user_history()           -> CSR arrays of (user, product, views, buys)
+    user_history()           -> CSR arrays of (user, product, views, buys, carts)
     pull()                   -> rebuild every cache
 """
 import json
@@ -49,6 +49,7 @@ def user_history(refresh: bool = False) -> dict[str, np.ndarray]:
         "prod": np.array([index[p] for r in rows for p in r["prods"]], dtype=np.uint16),
         "views": np.clip([int(v) for r in rows for v in r["views"]], 0, 65535).astype(np.uint16),
         "buys": np.clip([int(b) for r in rows for b in r["buys"]], 0, 255).astype(np.uint8),
+        "carts": np.clip([int(c) for r in rows for c in r["carts"]], 0, 255).astype(np.uint8),
         "products": products,
     }
     DATA.mkdir(exist_ok=True)

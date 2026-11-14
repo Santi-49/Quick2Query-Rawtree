@@ -55,7 +55,7 @@ def guard(items: list[str], state) -> list[str]:
 
 
 PUBLIC = {"baseline": "quartz", "explore": "mica", "rules": "flint", "rules2": "slate", "rules3": "basalt",
-          "cold1": "opal", "ranker": "jasper"}
+          "cold1": "opal", "ranker": "jasper", "cold2": "agate", "rules4": "onyx"}
 """Public model_version per strategy: other teams see it on the leaderboard, so it is a word that says nothing.
 Add a line for every new strategy. Spare words: agate, onyx, shale."""
 OLD = {"baseline": "coca", "explore": "xuixo", "rules": "mato", "rules2": "romesco", "rules3": "fideua", "cold1": "panellet"}

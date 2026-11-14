@@ -5,7 +5,7 @@ replaced by new objects in one assignment, never mutated in place (live purchase
 """
 import math
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 import numpy as np
@@ -18,7 +18,8 @@ FEATURES = ["sporty style", "family-size format", "luxury feel", "minimalist des
 BACK_DELAY = 60.0       # seconds before a back_in_stock product may be shown
 PRIOR = 50.0            # pseudo-views of the attribute prior in buys per view
 NEW_BOOST = 1.2
-EVERY = {"updates": 1.0, "purchases": 5.0, "trend": 30.0}
+EVERY = {"updates": 1.0, "purchases": 5.0, "today": 5.0, "trend": 30.0}
+TODAY_KEEP = 10         # products viewed today kept per shopper
 
 UPDATE_COLS = """toString(ts::DateTime64(3)) AS ts, product_id::String AS product_id, change::String AS change, category::String AS category,
        subcategory::String AS subcategory, brand::String AS brand, price_eur::Float64 AS price_eur, description::String AS description, is_active::Bool AS is_active"""
@@ -28,6 +29,8 @@ FEEDBACK_BUYS = """SELECT r.u AS u, f.p AS p, f.ts AS ts
 FROM (SELECT request_id::String AS id, purchased::String AS p, toString(ts::DateTime64(3)) AS ts FROM {TEAM}.feedback
       WHERE purchased::String != '' {since}) AS f
 INNER JOIN (SELECT request_id::String AS id, user_id::String AS u FROM shop.requests) AS r ON f.id = r.id"""
+TODAY = """SELECT user_id::String AS u, product_id::String AS p, event_type::String AS et, toString(ts::DateTime64(3)) AS ts FROM shop.events
+WHERE event_type::String IN ('view', 'add_to_cart') AND {where} ORDER BY ts::DateTime64(3)"""
 TREND = """WITH (SELECT max(ts::DateTime64(3)) FROM shop.events) AS now
 SELECT product_id::String AS p, countIf(t > now - INTERVAL 15 MINUTE) AS v15, count() AS v120
 FROM (SELECT product_id, ts::DateTime64(3) AS t FROM shop.events WHERE event_type::String = 'view')
@@ -53,6 +56,7 @@ class Shopper:
     bought: set[str]              # history purchases + live purchases
     viewed: dict[str, int]        # product -> history view count, only products not bought
     cat_share: dict[str, float]   # category -> share of the shopper's history views
+    carted: dict[str, int] = field(default_factory=dict)  # product -> times added to the cart (history + today), only products not bought
 
 
 def epoch(ts: str) -> float:
@@ -130,6 +134,10 @@ class State:
         self._hist_products: list[str] = []
         self._live: dict[str, set[str]] = {}
         self._last_buy = {"events": "", "feedback": ""}
+        self._today: dict[str, list[str]] = {}          # user -> last products viewed today, newest last
+        self._today_carts: dict[str, dict[str, int]] = {}
+        self._seen_today: set[tuple] = set()            # (u, p, et, ts) of the overlap window
+        self._last_today = ""
         self._next = {k: 0.0 for k in EVERY}
 
     # ---------- load ----------
@@ -173,6 +181,8 @@ class State:
 
         self._purchases()
         lap(f"live purchases {sum(map(len, self._live.values()))} for {len(self._live)} users")
+        self._today_events()
+        lap(f"today's views for {len(self._today)} users")
         self._trend()
         lap(f"trend {len(self.trend)} subcategories")
         self.segment = segment_from(data.cached("segment_category"))
@@ -271,6 +281,30 @@ class State:
                 last = max(last, r["ts"])
             self._last_buy[source] = last
 
+    def _today_events(self) -> None:
+        """Views and carts of shop.events: the last 2 hours at start, then what is new."""
+        if self._last_today:
+            chunks = [f"ts::DateTime64(3) > toDateTime64('{self._last_today}', 3) - INTERVAL 3 SECOND"]
+        else:
+            chunks = [f"ts::DateTime64(3) > (SELECT max(ts::DateTime64(3)) FROM shop.events) - INTERVAL 120 MINUTE AND cityHash64(user_id::String) % 4 = {c}" for c in range(4)]
+        rows = sorted((r for where in chunks for r in rt.query(TODAY.replace("{where}", where))), key=lambda r: r["ts"])
+        seen = set()
+        for r in rows:
+            key = (r["u"], r["p"], r["et"], r["ts"])
+            seen.add(key)
+            if key in self._seen_today:
+                continue
+            if r["et"] == "view":
+                self._today[r["u"]] = ([p for p in self._today.get(r["u"], ()) if p != r["p"]] + [r["p"]])[-TODAY_KEEP:]
+            else:
+                carts = dict(self._today_carts.get(r["u"], ()))
+                carts[r["p"]] = carts.get(r["p"], 0) + 1
+                self._today_carts[r["u"]] = carts
+        if rows:
+            self._last_today = rows[-1]["ts"]
+            last = epoch(self._last_today)
+            self._seen_today = {k for k in seen if epoch(k[3]) > last - 3}
+
     def _trend(self) -> None:
         trend = trend_from(rt.query(TREND), {pid: p.subcategory for pid, p in self.products.items()})
         if trend is not None:
@@ -280,7 +314,7 @@ class State:
 
     def refresh(self) -> None:
         """Run the steps that are due; each step fails alone and keeps the previous state."""
-        for step, fn in (("updates", self._updates), ("purchases", self._purchases), ("trend", self._trend)):
+        for step, fn in (("updates", self._updates), ("purchases", self._purchases), ("today", self._today_events), ("trend", self._trend)):
             now = time.time()
             if now < self._next[step]:
                 continue
@@ -293,17 +327,26 @@ class State:
     def available(self, pid: str) -> bool:
         return pid in self.products and pid not in self._inactive and time.time() >= self._until.get(pid, 0.0)
 
+    def today_views(self, user_id: str) -> list[str]:
+        """Products the shopper viewed earlier today (organic events), newest last."""
+        return self._today.get(user_id, [])
+
     def shopper(self, user_id: str, live: bool = True) -> Shopper | None:
         """What we know about a shopper. live=False leaves out today, for training on past feedback without leaking its outcome."""
         i = self._user_row.get(user_id)
+        carted = dict(self._today_carts.get(user_id, ())) if live else {}
         live = self._live.get(user_id, set()) if live else set()
-        if i is None and not live:
+        if i is None and not live and not carted:
             return None
         bought, viewed, cat_views = set(live), {}, {}
+        carts = self._hist.get("carts")
         if i is not None:
             lo, hi = self._hist["indptr"][i], self._hist["indptr"][i + 1]
-            for k, v, b in zip(self._hist["prod"][lo:hi].tolist(), self._hist["views"][lo:hi].tolist(), self._hist["buys"][lo:hi].tolist()):
+            for k, v, b, c in zip(self._hist["prod"][lo:hi].tolist(), self._hist["views"][lo:hi].tolist(), self._hist["buys"][lo:hi].tolist(),
+                                  carts[lo:hi].tolist() if carts is not None else [0] * (hi - lo)):
                 pid = self._hist_products[k]
+                if c:
+                    carted[pid] = carted.get(pid, 0) + c
                 if b:
                     bought.add(pid)
                 elif v and pid not in live:
@@ -312,4 +355,4 @@ class State:
                 if v and p is not None:
                     cat_views[p.category] = cat_views.get(p.category, 0) + v
         total = sum(cat_views.values())
-        return Shopper(bought, viewed, {c: n / total for c, n in cat_views.items()} if total else {})
+        return Shopper(bought, viewed, {c: n / total for c, n in cat_views.items()} if total else {}, {p: n for p, n in carted.items() if p not in bought})
