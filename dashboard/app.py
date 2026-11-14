@@ -11,7 +11,7 @@ import pandas as pd
 import streamlit as st
 
 from q2q import evaluate, rt, serve
-from q2q.strategy import Request, decode, guard, load
+from q2q.strategy import Request, decode, guard, load, route_of
 
 ROOT = rt.ROOT
 OKABE = ["#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#F0E442", "#D55E00", "#0072B2"]  # colour-blind safe
@@ -73,7 +73,7 @@ def safe(tab, body):
 with st.sidebar:
     if st.button("Refresh now"):
         st.cache_data.clear()
-    auto = st.toggle("Refresh every 60 s", value=False)
+    auto = st.toggle("Refresh every 30 s", value=False)
     st.caption("Reads are cached for 30 s. This page only reads RawTree.")
 
 cfg, _ = serve.Arms().get()
@@ -89,7 +89,7 @@ try:
     now = report("now").iloc[0]
     block_arm = serve.arm_for(Request("", time.time(), "header", False, "product", "", "", ["x"]), {**cfg, "explore_share": 0})
     m = st.columns(6)
-    m[0].metric("Champion · arm of this block", f"{champion} · {block_arm}")
+    m[0].metric("Champion", champion)
     m[1].metric("Our conversion, last hour", f"{us.conv:.2f}%", f"{us.conv - base.conv:+.2f} pts vs baseline")
     m[2].metric("Score, last hour", f"{100 * (us.conv - base.conv) / evaluate.ORACLE_GAP:.0f} / 100",
                 f"reference {100 * (ref.conv - base.conv) / evaluate.ORACLE_GAP:.0f}", delta_color="off")
@@ -100,7 +100,36 @@ try:
 except Exception as e:
     st.warning(f"Header numbers unavailable: {e}")
 
-tabs = st.tabs(["Overview", "One live request", "Hypotheses", "Explore arm", "Backlog and journal", "Raw tables", "How it works"])
+tabs = st.tabs(["Live traffic", "Overview", "One live request", "Hypotheses", "Explore arm", "Backlog and journal", "Raw tables", "How it works"])
+
+
+# ---------- 0. live traffic ----------
+def live():
+    df = report("live")
+    if df.empty:
+        st.info("No requests in the last 5 minutes.")
+        return
+    df["strategy"] = df.model_version.map(lambda m: decode(m) if m else "(no answer)")
+    df["route"] = df.model_version.map(lambda m: {"": "ordinary", "no_views": "no recent views", "new_shopper": "new shopper"}[route_of(m)] if m else "")
+    a, c = st.columns([1, 2])
+    a.markdown("### Who is answering, last 5 minutes")
+    mix = df.groupby(["route", "strategy"], as_index=False).agg(requests=("time", "size"), clicks=("clicked", "sum"), purchases=("purchased", "sum"))
+    mix["share"] = 100 * mix.requests / mix.requests.sum()
+    a.dataframe(mix.sort_values("requests", ascending=False), hide_index=True, column_config={"share": PCT})
+    a.markdown("### What should be running (arms.toml)")
+    lines = [f"- ordinary requests: **{', '.join(cfg['schedule']) or champion}**"]
+    lines += [f"- {k.replace('_', ' ')}: **{', '.join(v) or 'as ordinary'}**" for k, v in cfg["routes"].items()]
+    lines += [f"- explore: {100 * cfg['explore_share']:.0f}% of shoppers", "", "Several arms on one line split the shoppers evenly at the same time."]
+    a.markdown(chr(10).join(lines))
+    per = df.groupby([df.time.str[:5], "strategy"], as_index=False).size()
+    c.altair_chart(alt.Chart(per).mark_bar().encode(x=alt.X("time:N", title="Minute (UTC)"), y=alt.Y("size:Q", title="Requests answered"),
+                   color=alt.Color("strategy:N", scale=arm_colours(per.strategy), legend=alt.Legend(orient="top", title=None)), tooltip=["time", "strategy", "size"]).properties(height=190), width="stretch")
+    c.markdown("### Each shopper, newest first")
+    df["result"] = df.apply(lambda r: "bought" if r.purchased else "clicked" if r.clicked else "fallback" if r.served_by == "fallback" else "", axis=1)
+    df["shopper"] = df.new_shopper.map({True: "new", False: "returning"})
+    c.dataframe(df[["time", "page", "shopper", "device", "region", "views", "strategy", "route", "latency_ms", "result"]].head(200), hide_index=True, height=420,
+                column_config={"latency_ms": st.column_config.NumberColumn("latency ms", format="%.0f")})
+    c.caption("Turn on \"Refresh every 30 s\" in the sidebar to follow it. Feedback arrives about a second after each request.")
 
 
 # ---------- 1. overview ----------
@@ -326,10 +355,10 @@ def how():
     st.info("The illustrated explanation is `docs/explainer.html`: open it in a browser. It tells the story in ten pictures, with no code.")
 
 
-for tab, body in zip(tabs, (overview, one_request, hypotheses, explore, backlog, raw, how)):
+for tab, body in zip(tabs, (live, overview, one_request, hypotheses, explore, backlog, raw, how)):
     safe(tab, body)
 
 if auto:
-    time.sleep(60)
+    time.sleep(30)
     st.cache_data.clear()
     st.rerun()
