@@ -137,3 +137,28 @@ summary = "rules4 plus the gap study: today's organic carts lead (x30 over the f
 status = "queued"
 conclusion = "Not run live. Our feedback 14 Nov to 17:20 UTC: carted today converts 1.72% / 6.37% per weighted impression (returning / new with views) against 0.69% / 1.24% for the first view, available on 40-44% of requests, at slot 1 in 2%. Dry run on 300 live requests: 300/300 valid, 0.9 ms median, 2.1 ms p95; top 3 differs from rules4 on 262/300. Needs today's carts since the start of the day in State (H-gap next)."
 hypotheses = ["gap", "home-ceiling", "reshow-rank", "session-shape"]
+
+# Queued on 14 Nov 18:50 UTC when Santi left. Do these first, in this order.
+[[backlog]]
+idea = "QUEUED 1 · Finish ranker3 and put it in place of rules5"
+why = "ranker2 plus today's carts, our own clicks, single-view sessions. Files: src/q2q/train3.py, strategies/ranker3.py, models/ranker3*.txt. Needs: the agent's report, `train3` in cli.py, `state.our_clicks_today`, a public name in strategy.PUBLIC, a replay check held out in time, then scripts/vm.sh code and models, restart the VM router."
+hypothesis = "gap"
+size = "small, in progress"
+
+[[backlog]]
+idea = "QUEUED 2 · Are the simulator's parameters moving? (H-drift)"
+why = "Santi's hypothesis: factors we treat as fixed (product appeal, category and slot multipliers, a hidden trend vector or embedding) change over the day. Hints: only 21 of 37 multipliers were stable between the two halves of the day (H-loglinear); the retrained model beats every fixed rule; the baseline moved from 0.74% to 0.41% within two hours. Tests: (1) per-product purchases per view in organic events, hour by hour: is the hour-to-hour correlation lower than sampling noise allows, and do products move together by subcategory, brand or phrase (a moving trend vector)? (2) the same in the 30-day history: daily appeal per product, autocorrelation, principal components of the changes. (3) refit the log-linear multipliers per 2-hour block and test each for a time trend. (4) replay: ranker2 trained on the last 2 hours against all of today, scored on the next 30 minutes. If drift is real: shorter training window or time-decayed weights, appeal from the last hour instead of all time, and retraining must run during the final."
+hypothesis = "drift"
+size = "medium"
+
+[[backlog]]
+idea = "QUEUED 3 · Retraining when the laptop is off"
+why = "Training needs 890 MB and the VM has 1 GB, so with the laptop off ranker2 is frozen. If QUEUED 2 finds drift this costs score. Options: train on the VM on a sample with fewer trees, at night priority; or keep the laptop on for the final."
+hypothesis = "drift"
+size = "small"
+
+[[backlog]]
+idea = "QUEUED 4 · Sunday: freeze and final"
+why = "06:00 UTC pick the champion per kind of request from the Projected final view and write docs/JURY.md; 07:00 restart rehearsal on the VM; 08:30 freeze with the champion nearly alone and explore at 1% or 0; 09:00–11:00 final, no exploration in the scored hour. Also: bring docs/explainer.html up to date, side-challenge README section and demo for the operator."
+hypothesis = ""
+size = "medium"
