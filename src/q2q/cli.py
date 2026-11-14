@@ -18,8 +18,8 @@ def main() -> None:
     replay.add_argument("names", nargs="*", default=["baseline", "rules2", "rules4", "ranker", "ranker2", "cold1", "cold2"])
     replay.add_argument("--hours", type=float, default=4)
     replay.add_argument("--refresh", action="store_true", help="pull the window again instead of using the cache")
-    replay.add_argument("--organic", type=int, default=4000, help="requests with an organic purchase to replay")
-    replay.add_argument("--sample", type=int, default=2000, help="uniform sample of requests for overlap")
+    replay.add_argument("--organic", type=int, default=2500, help="requests with an organic purchase to replay")
+    replay.add_argument("--sample", type=int, default=1000, help="uniform sample of requests for overlap")
     args = parser.parse_args()
     if args.cmd == "replay":
         from q2q import replay as offline

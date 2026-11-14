@@ -6,7 +6,7 @@ Four frames, all for the window [start, end) where end is the newest request at 
   reqs   one row per request we got feedback for: Request fields, the list shown, click, purchase, served_by, model_version
   buys   purchases with time (shop.events and our feedback) of the window's shoppers, up to end + 30 min:
          live purchases before a request feed the State, organic ones after it feed organic@10
-  today  views and carts in shop.events of the window's shoppers from start - 2 h to end: the State's "today"
+  today  views (from start - 2 h) and every cart in shop.events of the window's shoppers, up to end: the State's "today"
   meta   start, end
 """
 import sys
@@ -41,7 +41,7 @@ SQL = {
          WHERE purchased::String != '' AND ts::DateTime64(3) < '{{END}}' GROUP BY rid) f
         INNER JOIN (SELECT request_id::String AS rid, any(user_id::String) AS u FROM shop.requests GROUP BY rid) r ON r.rid = f.rid""",
     "today": f"""SELECT user_id::String AS u, product_id::String AS p, event_type::String = 'add_to_cart' AS cart, {T} AS t FROM shop.events
-        WHERE event_type::String IN ('view', 'add_to_cart') AND ts::DateTime64(3) >= toDateTime64('{{START}}', 3) - INTERVAL 2 HOUR
+        WHERE (event_type::String = 'add_to_cart' OR (event_type::String = 'view' AND ts::DateTime64(3) >= toDateTime64('{{START}}', 3) - INTERVAL 2 HOUR))
           AND ts::DateTime64(3) < '{{END}}' AND cityHash64(user_id::String) % {{N}} = {{K}} AND {USERS}""",
 }
 CHUNKS = {"reqs": 4, "events": 4, "fed": 1, "today": 16}

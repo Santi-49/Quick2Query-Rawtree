@@ -1,6 +1,6 @@
 """Offline replay: score strategies on our logged requests of the last N hours. Not a simulator; only logged outcomes.
 
-    uv run q2q replay rules4 ranker2 cold2 --hours 4 [--refresh] [--organic 4000] [--sample 2000]
+    uv run q2q replay rules4 ranker2 cold2 --hours 4 [--refresh] [--organic 2500] [--sample 1000]
 
 Each strategy answers every replayed request through guard(), as the router does. Metrics per route (main,
 new_shopper, no_views) and overall (routes weighted by their share of the window's requests), each with a
@@ -94,16 +94,19 @@ def as_of(state, u: str, t: float, buys: dict, today: dict) -> None:
 
 def replay(names: list[str], reqs: pd.DataFrame, state, buys: dict, today: dict) -> dict[str, list[list[str]]]:
     """Top 10 per strategy per request, through guard() as the router; a failing call answers the guard's best sellers."""
-    out = {n: [] for n in names}
+    out, took = {n: [] for n in names}, Counter()
     strategies = {n: load(n) for n in names}
     for r in reqs.itertuples(index=False):
         as_of(state, r.u, r.t, buys, today)
         for n, s in strategies.items():
             req = Request(r.rid, r.t, r.u, bool(r.new), r.page, r.dev, r.reg, list(r.vp))
+            t = time.perf_counter()
             try:
                 out[n].append(guard(s.recommend(req, state), state))
             except Exception:
                 out[n].append(guard([], state))
+            took[n] += time.perf_counter() - t
+    print("seconds per strategy: " + ", ".join(f"{n} {took[n]:.0f}" for n in names), flush=True)
     return out
 
 
@@ -156,7 +159,7 @@ def table(results: dict[str, dict]) -> str:
     return "\n".join(lines)
 
 
-def run(names: list[str], hours: float = 4, refresh: bool = False, n_organic: int = 4000, n_sample: int = 2000) -> dict:
+def run(names: list[str], hours: float = 4, refresh: bool = False, n_organic: int = 2500, n_sample: int = 1000) -> dict:
     from q2q.state import State
 
     start = time.time()
