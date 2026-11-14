@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from q2q import evaluate, rt, serve
-from q2q.strategy import Request, guard, load
+from q2q.strategy import Request, decode, guard, load
 from q2q.strategies.explore import BASE
 
 ROOT = rt.ROOT
@@ -218,6 +218,9 @@ with tabs[3]:
     try:
         live = report("strategies")
         if not live.empty:
+            live["click rate"], live["purchase rate"] = rate(live, "clicks"), rate(live, "purchases")
+            live["strategy"] = live["strategy"].map(decode)
+            live = live.groupby("strategy", as_index=False).agg({c: ("min" if live[c].dtype == object else "sum") for c in live.columns if c != "strategy"})
             live["click rate"], live["purchase rate"] = rate(live, "clicks"), rate(live, "purchases")
             live = live.set_index("strategy")
     except Exception as e:

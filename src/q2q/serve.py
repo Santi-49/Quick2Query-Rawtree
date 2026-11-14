@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from q2q import rt, strategies
-from q2q.strategy import Request, guard, load
+from q2q.strategy import Request, decode, guard, label, load
 
 ARMS = rt.ROOT / "arms.toml"
 DEFAULTS = {"champion": "baseline", "schedule": [], "explore_share": 0.03, "salt": "q2q-1"}
@@ -67,12 +67,12 @@ def answer(req: Request, cfg: dict, state, get, sha: str) -> tuple[list[str], st
     """10 items and the model_version for one request. Never raises."""
     strategy = get(arm_for(req, cfg))
     try:
-        return guard(strategy.recommend(req, state), state), f"{strategy.name}@{sha}"
+        return guard(strategy.recommend(req, state), state), label(strategy.name)
     except Exception as e:
         say(f"strategy {strategy.name} failed: {e!r}", key=strategy.name)
         with _lock:
             stats["errors"] += 1
-        return guard([], state), f"baseline@{sha}"
+        return guard([], state), label("baseline")
 
 
 class Arms:
@@ -145,11 +145,11 @@ def push(batch: list[tuple[Request, list[str], str]]) -> None:
     with _lock:
         for r, _, mv in batch:
             stats["answered"] += 1
-            stats["arms"][mv.split("@")[0]] += 1
+            stats["arms"][decode(mv)] += 1
             stats["latency"].append(now - r.ts)
     explore = [{"kind": "explore", "ts": utc(r.ts), "request_id": r.request_id, "user_id": r.user_id,
                 "model_version": mv, "items": items, **r.log}
-               for r, items, mv in batch if mv.startswith("explore@")]
+               for r, items, mv in batch if r.log]
     if explore:
         try:
             insert("scratch", explore)
@@ -263,7 +263,7 @@ def run(shadow: bool = False) -> None:
                         stats["compute"].append((time.perf_counter() - t) * 1000)
                         if shadow:
                             stats["answered"] += 1
-                            stats["arms"][mv.split("@")[0]] += 1
+                            stats["arms"][decode(mv)] += 1
                             stats["latency"].append(time.time() - req.ts)
                     batch.append((req, items, mv))
                 took = (time.perf_counter() - start) * 1000

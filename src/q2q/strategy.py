@@ -3,7 +3,9 @@
 A strategy is one file in q2q/strategies/ that defines a module-level STRATEGY.
 It reads the live State (see state.py) and returns up to 10 product IDs, best first.
 """
+import hashlib
 import importlib
+from pathlib import Path
 from dataclasses import dataclass, field
 
 N = 10
@@ -50,3 +52,15 @@ def guard(items: list[str], state) -> list[str]:
                 seen.add(p)
                 out.append(p)
     return out
+
+
+def label(name: str) -> str:
+    """The public model_version of a strategy: other teams see it on the leaderboard, so it says nothing."""
+    return "m" + hashlib.sha1(("q2q" + name).encode()).hexdigest()[:5]
+
+
+def decode(model_version: str) -> str:
+    """Strategy name behind a model_version; older answers carry the name itself."""
+    code = model_version.split("@")[0]
+    names = [f.stem for f in (Path(__file__).parent / "strategies").glob("*.py")]
+    return next((n for n in names if label(n) == code), code)

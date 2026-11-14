@@ -13,6 +13,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
 from q2q import rt
+from q2q.strategy import decode
 
 START = "2026-11-14 13:26:35"  # until then we served the baseline list
 ORACLE_GAP = 2.95  # oracle minus baseline, in conversion points
@@ -112,7 +113,7 @@ def blocks(start: str = START) -> list[dict]:
     lift = lifts(d, start_slot, max(later), {s: r.get("answered", 0) for s, r in stats.items()})
     arms = defaultdict(Counter)
     for r in _sql("arms", since):
-        arms[r["slot"]][r["model_version"]] += r["n"]
+        arms[r["slot"]][decode(r["model_version"])] += r["n"]
     out = []
     for s, L in lift.items():
         st = stats.get(s, {})

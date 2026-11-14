@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+from q2q.strategy import decode
 from q2q import serve
 from q2q.strategy import N, Request
 
@@ -52,11 +53,11 @@ def test_block_arm_switches_at_x6_35():
 
 def test_answer_guards_and_labels():
     items, mv = serve.answer(req(), {**CFG, "explore_share": 0}, FakeState(), lambda n: Named(n), "abc")
-    assert mv == "baseline@abc" and items[:2] == ["a", "b0"] and len(items) == N and "b3" not in items
+    assert decode(mv) == "baseline" and items[:2] == ["a", "b0"] and len(items) == N and "b3" not in items
 
 
 def test_failing_strategy_gives_baseline():
     cfg = {**CFG, "explore_share": 0, "champion": "rules"}
     items, mv = serve.answer(req(), cfg, FakeState(), lambda n: Named(n, fail=True), "abc")
-    assert mv == "baseline@abc"
+    assert decode(mv) == "baseline"
     assert items == [p for p in FakeState.best if p != "b3"][:N]
