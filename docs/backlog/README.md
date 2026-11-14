@@ -5,7 +5,7 @@ One line per idea. Status: idea, in test, done, dropped. A promoted idea gets a 
 | Idea | Why | Status | Owner |
 |---|---|---|---|
 | Live-calibrated multipliers (`rules2`) | history weights were off by 3 to 10 times | done, champion | main |
-| Favourite category as a power law (`rules3`) | home requests: ×28 at a 60% share | in test | main |
+| Favourite category as a power law (`rules3`) | home requests: ×28 at a 60% share | dropped, −6 score against `rules2` | main |
 | Cold route for requests without views (`cold1`) | new shoppers on home bought nothing from `rules` | in test | main |
 | Category pages | convert less than half as well as product pages | idea, largest known leak | |
 | Gradient-boosted ranker on live feedback and explore data | learns weights and interactions instead of guesses | idea, next | main |
