@@ -126,6 +126,9 @@ def plan() -> None:
                             f'<div><p>{escape(str(p.get("what", "")))}</p><p class="rule"><b>Decision rule.</b> {escape(str(p.get("decide", "")))}</p></div></div>' for p in reg["plan"]))
     else:
         st.caption("strategies.toml has no [[plan]] entries.")
+    vm = ROOT / "logs/vm/status.txt"
+    if vm.exists():
+        ui.html('<p class="line"><b>Prod VM.</b> ' + escape(vm.read_text(encoding="utf-8", errors="replace").strip()[:300]) + "</p>")
     log = ROOT / "logs/operator.out.log"
     if log.exists():
         last = [l.strip() for l in log.read_text(encoding="utf-8", errors="replace").splitlines() if l.strip()][-3:]

@@ -32,7 +32,9 @@ def epoch(ts: str) -> float:
 def stored() -> list[dict]:
     """Every readable line of updates.jsonl; a line caught half-written is skipped."""
     out = []
-    for line in FILE.read_text(encoding="utf-8", errors="replace").splitlines() if FILE.exists() else []:
+    lines = dict.fromkeys(l for f in (FILE, data.ROOT / "logs/vm/updates.jsonl") if f.exists()  # the VM's operator writes its own file
+                          for l in f.read_text(encoding="utf-8", errors="replace").splitlines())
+    for line in lines:
         try:
             item = json.loads(line)
         except ValueError:

@@ -1,4 +1,5 @@
-"""Push the models to the VM whenever training rewrites them. Run on the laptop next to `q2q train2`."""
+"""Push the models to the VM whenever training rewrites them, and fetch what the dashboard shows of the VM.
+Run on the laptop next to `q2q train2`."""
 import pathlib
 import subprocess
 import time
@@ -13,4 +14,5 @@ while True:
         code = subprocess.call([BASH, "scripts/vm.sh", "models"], cwd=ROOT)
         print(time.strftime("%H:%M:%S"), "pushed" if code == 0 else f"push failed ({code})", flush=True)
         seen = now if code == 0 else seen
+    subprocess.call([BASH, "scripts/vm.sh", "sync"], cwd=ROOT)
     time.sleep(30)
