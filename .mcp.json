@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "rawtree": {
+      "type": "http",
+      "url": "https://mcp.rawtree.com/mcp",
+      "headers": { "Authorization": "Bearer ${RAWTREE_API_KEY}" }
+    }
+  }
+}

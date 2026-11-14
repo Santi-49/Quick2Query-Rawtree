@@ -1,6 +1,6 @@
-# quick2query · plan (final)
+# quick2query · plan (approved)
 
-Status: **final, awaiting Santi's approval.** Written Saturday 14 Nov 12:45 UTC after the initial EDA. Nothing in the repo is restructured until it is approved. Evidence: `docs/findings/00`–`07`, beliefs: `docs/SIMULATOR.md`. Times are UTC (CET = UTC + 1). The final is Sunday 09:00–11:00 UTC.
+Status: **approved by Santi, Saturday 14 Nov 13:10 UTC.** Written 12:45 UTC after the initial EDA. Evidence: `docs/findings/00`–`07`, beliefs: `docs/SIMULATOR.md`. Times are UTC (CET = UTC + 1). The final is Sunday 09:00–11:00 UTC.
 
 ## 1. Where we stand
 
@@ -41,7 +41,7 @@ pyproject.toml  uv.lock    uv project, python 3.12, package q2q, src layout
 arms.toml                  traffic allocation and block schedule, the only deploy switch
 src/q2q/
   rt.py                    RawTree client: query(), insert(). The only HTTP code
-  data.py                  history pulls cached as parquet under data/
+  data.py                  history pulls cached as json and npz under data/
   state.py                 live state: catalogue, stock, prices, trends, shopper memory
   strategy.py              Strategy interface, registry, guard
   serve.py                 router: poll, assign arm, recommend, guard, push
@@ -90,7 +90,7 @@ class Strategy:
 | Shopper memory | history aggregates + live events + our feedback | bought set, viewed-not-bought counts, category shares |
 | Segment priors | device × region × category | used for every shopper, the only memory for new ones |
 
-A restart rebuilds all of it from RawTree and the parquet cache. Target: answering again within 60 s.
+A restart rebuilds all of it from RawTree and the cache under `data/`. Target: answering again within 60 s.
 
 ## 6. Strategies
 
@@ -103,7 +103,7 @@ A restart rebuilds all of it from RawTree and the parquet cache. Target: answeri
 
 - **Cold branch, inside every strategy.** No recent views: shopper's top categories and viewed-not-bought products. New shopper: segment prior, then session. New shopper with no views (6% of requests): segment best sellers. New product: attribute appeal.
 - Multipliers in `rules` start from the effect sizes in `docs/SIMULATOR.md` and are re-estimated from live data.
-- The explore arm is stratified because a uniformly random product converts at 0.04% per impression and would teach nothing. **This refines "small random-exploration arm". Say if you prefer plain uniform.**
+- The explore arm is stratified because a uniformly random product converts at 0.04% per impression and would teach nothing. Santi chose stratified.
 - More ideas go to `docs/backlog/<slug>.md`: brand and phrase affinity, shopper clusters, a bandit over strategies. One radical idea in play at a time, after `rules` is champion.
 
 ## 7. Evaluation
@@ -206,11 +206,13 @@ Our key can query and insert into existing tables only. It cannot create tables,
 | Can the key create tables and scheduled SQL? | No. `team_01.scratch` with `kind`, and our own timer |
 | Which answer counts when two arrive? | Not tested, on purpose. The lease guarantees one writer |
 
-## 14. Needed from Santi
+## 14. Decisions by Santi
 
-1. **Approve this plan**, or mark changes.
-2. **The new repo URL.** Then `origin` becomes `upstream`, the new `origin` is added, and the work so far is committed and pushed.
-3. **Prod machine:** VM in AWS US East, or the desktop.
-4. **Install `rtree` and register the MCP server.** The session was not permitted to. A verified `rtree` 0.8.4 binary is downloaded and waiting.
-5. **Ask the organisers** for a key with create-table and scheduled-SQL rights, and a read-only key.
-6. Stratified explore arm, or plain uniform.
+| Item | Decision |
+|---|---|
+| Plan | approved, 14 Nov 13:10 UTC |
+| Repo | `origin` is `Santi-49/Quick2Query-Rawtree`, `upstream` is the organisers' repo |
+| Prod machine | a VM, details to come. Until then the laptop is prod |
+| `rtree` and the MCP server | installed and registered by Santi |
+| Other keys | none. The team key is all we have, so section 8 stands |
+| Explore arm | stratified |
