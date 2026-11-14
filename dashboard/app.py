@@ -1,11 +1,10 @@
-"""quick2query dashboard: how the recommender works, and the live numbers. Read-only.
+"""quick2query dashboard: what is working, live. Read-only.
 
     uv run --group dashboard streamlit run dashboard/app.py
 """
-import importlib
+import json
 import re
 import time
-from pathlib import Path
 
 import altair as alt
 import pandas as pd
@@ -13,14 +12,24 @@ import streamlit as st
 
 from q2q import evaluate, rt, serve
 from q2q.strategy import Request, decode, guard, load
-from q2q.strategies.explore import BASE
 
 ROOT = rt.ROOT
-PALETTE = ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00"]  # Okabe-Ito
+OKABE = ["#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#F0E442", "#D55E00", "#0072B2"]  # colour-blind safe
+GREY = "#5B6577"
 PCT = st.column_config.NumberColumn(format="%.2f%%")
+TABLES = ["shop.requests", "shop.events", "shop.catalog", "shop.catalog_updates", "shop.history_sessions",
+          "shop.history_events", "{TEAM}.submissions", "{TEAM}.feedback", "{TEAM}.scratch"]
 
 st.set_page_config(page_title="quick2query", layout="wide")
-st.title("quick2query · how it works, live")
+st.markdown("""<style>
+.block-container {padding: 2.2rem 2rem 2rem; max-width: 1500px}
+[data-testid="stMetric"] {background: #161E2E; border: 1px solid #263147; border-radius: 8px; padding: .6rem .8rem}
+[data-testid="stMetricLabel"] p {font-size: .78rem; color: #9AA7BD}
+[data-testid="stMetricValue"] {font-size: 1.45rem; font-variant-numeric: tabular-nums}
+h1 {font-size: 1.3rem !important; padding: 0 0 .4rem !important}
+h3 {font-size: 1rem !important; padding-top: .4rem !important}
+.tag {display: inline-block; padding: 1px 8px; border-radius: 10px; border: 1px solid #3A4865; font-size: .78rem}
+</style>""", unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -45,249 +54,282 @@ def live_state():
     return s
 
 
-def rate(df: pd.DataFrame, num: str, den: str = "requests") -> pd.Series:
-    return 100 * df[num] / df[den].where(df[den] > 0)
+def arm_colours(arms) -> alt.Scale:
+    """The same colour for the same arm on every chart."""
+    known = sorted(f.stem for f in (ROOT / "src/q2q/strategies").glob("*.py") if f.stem != "__init__")
+    domain = [a for a in known if a in set(arms)] + sorted(set(arms) - set(known))
+    return alt.Scale(domain=domain, range=[OKABE[known.index(a) % len(OKABE)] if a in known else GREY for a in domain])
+
+
+def safe(tab, body):
+    """Run one tab; a failing query shows a warning and the other tabs still render."""
+    with tab:
+        try:
+            body()
+        except Exception as e:
+            st.warning(f"This view could not be built: {e}")
 
 
 with st.sidebar:
-    if st.button("Refresh"):
+    if st.button("Refresh now"):
         st.cache_data.clear()
-        for _ in range(3):
-            live_state().refresh()
-    st.caption("Data is cached for 30 s. Everything here only reads RawTree.")
+    auto = st.toggle("Refresh every 60 s", value=False)
+    st.caption("Reads are cached for 30 s. This page only reads RawTree.")
 
-tabs = st.tabs(["How it works", "One live request", "Scoreboard", "Strategies", "Hypotheses", "Explore arm"])
+cfg, _ = serve.Arms().get()
+champion = cfg["champion"]
 
-# ---------- 1. How it works ----------
-with tabs[0]:
-    explainer = ROOT / "docs" / "EXPLAINER.md"
-    if explainer.exists():
-        st.markdown(explainer.read_text(encoding="utf-8"))
+# ---------- header ----------
+st.title("quick2query · live")
+try:
+    board = report("standing")
+    teams = board[~board.team_id.isin(["baseline", "reference"])].sort_values("conv", ascending=False).reset_index(drop=True)
+    row = lambda t: board[board.team_id == t].iloc[0]
+    us, base, ref = row(rt.TEAM), row("baseline"), row("reference")
+    now = report("now").iloc[0]
+    block_arm = serve.arm_for(Request("", time.time(), "header", False, "product", "", "", ["x"]), {**cfg, "explore_share": 0})
+    m = st.columns(6)
+    m[0].metric("Champion · arm of this block", f"{champion} · {block_arm}")
+    m[1].metric("Our conversion, last hour", f"{us.conv:.2f}%", f"{us.conv - base.conv:+.2f} pts vs baseline")
+    m[2].metric("Score, last hour", f"{100 * (us.conv - base.conv) / evaluate.ORACLE_GAP:.0f} / 100",
+                f"reference {100 * (ref.conv - base.conv) / evaluate.ORACLE_GAP:.0f}", delta_color="off")
+    m[3].metric("Rank", f"{int(teams.index[teams.team_id == rt.TEAM][0]) + 1} of {len(teams)}", f"best {teams.conv.iloc[0]:.2f}%", delta_color="off")
+    m[4].metric("Answered by us, last 10 min", f"{100 * now.answered / max(now.requests, 1):.1f}%")
+    m[5].metric("Latency p95, last 10 min", f"{now.p95_ms / 1000:.2f} s", "deadline 3 s", delta_color="off")
+    st.caption(f"Leaderboard refresh {us.ts[11:19]} UTC. Score: 0 is the baseline, 100 the hidden model's own picks.")
+except Exception as e:
+    st.warning(f"Header numbers unavailable: {e}")
+
+tabs = st.tabs(["Overview", "One live request", "Hypotheses", "Explore arm", "Backlog and journal", "Raw tables", "How it works"])
+
+
+# ---------- 1. overview ----------
+def overview():
+    b = blocks()
+    left, right = st.columns([2, 1])
+    if b.empty or b["score"].isna().all():
+        left.info("No block with a known lift yet.")
+        return
+    b = b.dropna(subset=["score"]).copy()
+    b["time"] = b.block_end.str[11:16]
+    b["outage"] = b.answered.fillna(0) < 0.5
+    b["arm"] = b.arm.where(~b.outage, "outage").replace("", "outage")
+    good = b[~b.outage]
+    base = alt.Chart(b.tail(36)).encode(x=alt.X("time:N", title="10-minute block ending (UTC)", sort=None))
+    bars = base.mark_bar().encode(y=alt.Y("score:Q", title="Score of the block (0 baseline, 100 oracle)"),
+                                  color=alt.Color("arm:N", scale=arm_colours(b.arm), legend=alt.Legend(orient="top", title=None)),
+                                  tooltip=["time", "arm", alt.Tooltip("score:Q", format="+.1f"), alt.Tooltip("lift:Q", format="+.2f"), "requests"])
+    names = base.mark_text(dy=-6, fontSize=10, color="#C9D2E3").encode(y="score:Q", text="arm:N")
+    ref = base.mark_line(color="#E6EBF4", strokeDash=[5, 4]).encode(y="ref_window_score:Q")
+    left.altair_chart((bars + names + ref).properties(height=330), width="stretch")
+    left.caption("Bars: our lift over the baseline in each block, read from the leaderboard. Dashed line: the reference recommender over the last hour. "
+                 "Outage blocks (under half answered) are grey and left out of every average.")
+
+    summary = pd.DataFrame(evaluate.by_arm(good.to_dict("records")))
+    summary = summary.merge(good.groupby("arm").purchase_rate.mean().mul(100).rename("purchase").reset_index(), on="arm")
+    champ = summary[summary.arm == champion]
+    champ_score = champ.score.iloc[0] if len(champ) else None
+
+    def verdict(r):
+        if r.arm == champion:
+            return "champion"
+        if r.blocks < 2 or champ_score is None:
+            return "too early"
+        gap = r.score - champ_score
+        return f"beats champion by {gap:+.1f}" if gap > 0 else f"behind champion by {gap:+.1f}"
+    summary["verdict"] = summary.apply(verdict, axis=1)
+    summary["click_rate"] *= 100
+    right.markdown("### Verdict per strategy")
+    right.dataframe(summary.sort_values("score", ascending=False)[["arm", "verdict", "blocks", "score", "se", "click_rate", "purchase"]], hide_index=True,
+                    column_config={"score": st.column_config.NumberColumn("mean score", format="%+.1f"), "se": st.column_config.NumberColumn("± se", format="%.1f"),
+                                   "click_rate": st.column_config.NumberColumn("click", format="%.2f%%"), "purchase": st.column_config.NumberColumn("buy", format="%.2f%%")})
+    right.caption("A challenger needs to win three alternated block pairs. One block is exact to about ±1 score point.")
+
+    seg = report("segments")
+    if seg.empty:
+        return
+    seg["arm"] = seg.model_version.map(decode)
+    seg["segment"] = seg.page + " · " + seg.new_user.map({True: "new shopper", False: "returning"})
+    g = seg.groupby(["segment", "arm"], as_index=False)[["requests", "clicks", "purchases"]].sum()
+    g["cell"] = g.apply(lambda r: f"{100 * r.purchases / r.requests:.2f}% buy · {100 * r.clicks / r.requests:.2f}% click · n {int(r.requests):,}", axis=1)
+    table = g.pivot(index="segment", columns="arm", values="cell").fillna("")
+    big = g[g.requests >= 300].copy()
+    big["buy"] = 100 * big.purchases / big.requests
+    best = big.loc[big.groupby("segment").buy.idxmax()].set_index("segment")
+    table["best with n ≥ 300"] = [f"{best.arm[s]} ({best.buy[s]:.2f}%)" if s in best.index else "too few" for s in table.index]
+    st.markdown("### Where each strategy works: purchase and click rate per request, last 3 hours")
+    st.dataframe(table, width="stretch")
+    mine = big[big.arm == champion]
+    if len(mine):
+        w = mine.loc[mine.buy.idxmin()]
+        st.caption(f"Weakest segment of the champion `{champion}`: **{w.segment}**, {w.buy:.2f}% purchases over {int(w.requests):,} requests. "
+                   "Purchases are rare, so read differences under 300 requests as noise.")
+    rel = report("reliability")
+    if not rel.empty:
+        rel["answered %"] = 100 * rel.answered / rel.requests
+        rel["time"] = rel.t.str[11:16]
+        a, c = st.columns(2)
+        a.altair_chart(alt.Chart(rel).mark_area(opacity=.5, color=OKABE[2]).encode(x=alt.X("time:N", title="10 minutes starting (UTC)", sort=None),
+                       y=alt.Y("answered %:Q", title="Answered by us, %")).properties(height=150), width="stretch")
+        lat = rel.melt(id_vars="time", value_vars=["p50_ms", "p95_ms"], var_name="quantile", value_name="ms")
+        c.altair_chart(alt.Chart(lat).mark_line().encode(x=alt.X("time:N", title="10 minutes starting (UTC)", sort=None), y=alt.Y("ms:Q", title="Latency of our answers, ms"),
+                       color=alt.Color("quantile:N", scale=alt.Scale(range=[OKABE[0], OKABE[1]]), legend=alt.Legend(orient="top", title=None)),
+                       strokeDash="quantile:N").properties(height=150), width="stretch")
+
+
+# ---------- 2. one live request ----------
+def one_request():
+    reqs = rt.query(serve.POLL.replace("LIMIT 60", "LIMIT 30"))
+    state = live_state()
+    labels = [f"{time.strftime('%H:%M:%S', time.gmtime(r['ts_ms'] / 1000))} · {r['page']} · {r['device']} · {r['region']} · "
+              f"{'new' if r['is_new_user'] else 'returning'} · {len(r['views'])} views" for r in reqs]
+    r = reqs[st.selectbox("Request, newest first", range(len(reqs)), format_func=labels.__getitem__)]
+    P = state.products
+    views = list(r["views"])
+    shopper = state.shopper(r["user_id"])
+    a, c = st.columns(2)
+    top = sorted(shopper.cat_share.items(), key=lambda kv: -kv[1])[:3] if shopper else []
+    lifts = sorted(((k, v) for k, v in state.segment.get((r["device"], r["region"]), {}).items() if v > 1.5), key=lambda kv: -kv[1])
+    a.markdown("### The shopper")
+    a.markdown(f"- Known: **{'yes' if shopper else 'no'}** · bought {len(shopper.bought) if shopper else 0} · viewed before, not bought {len(shopper.viewed) if shopper else 0}\n"
+               f"- Favourite categories: {', '.join(f'{k} {100 * v:.0f}%' for k, v in top) or 'none'}\n"
+               f"- Segment {r['device']} × {r['region']}: {', '.join(f'{k} ×{v:.1f}' for k, v in lifts) or 'no category above ×1.5'}")
+    c.markdown("### Recent views, oldest first")
+    if views:
+        c.dataframe(pd.DataFrame([{"subcategory": P[p].subcategory, "brand": P[p].brand, "price €": P[p].price, "in stock": state.available(p)} for p in views if p in P]),
+                    hide_index=True, height=38 + 35 * min(len(views), 4))
     else:
-        st.info("docs/EXPLAINER.md is not written yet.")
-    left, right = st.columns([3, 1])
-    left.graphviz_chart("""digraph {
-  rankdir=LR; node [shape=box, style=rounded, fontname=Helvetica]; edge [fontname=Helvetica, fontsize=10];
-  shoppers -> "shop.requests";
-  subgraph cluster_router { label="router (serve.py)"; style=rounded;
-    state [label="state"]; arm [label="arm choice"]; strategy [label="strategy"]; guard [label="guard"];
-    state -> strategy; arm -> strategy -> guard; }
-  "shop.requests" -> arm;
-  "shop.events" -> state; "shop.catalog_updates" -> state;
-  guard -> "team_01.submissions" -> simulator;
-  simulator -> "team_01.feedback"; simulator -> leaderboard;
-  leaderboard -> "block readings"; "team_01.feedback" -> "block readings";
-  "block readings" -> "decision in arms.toml" -> arm [label="hot reload"];
-}""", width="stretch")
-    try:
-        cfg, _ = serve.Arms().get()
-        now = time.time()
-        if cfg["schedule"]:
-            owner = cfg["schedule"][int((now - serve.BLOCK_START) // 600) % len(cfg["schedule"])]
-        else:
-            owner = cfg["champion"]
-        ends = serve.BLOCK_START + (int((now - serve.BLOCK_START) // 600) + 1) * 600
-        right.subheader("arms.toml now")
-        right.markdown(f"- champion: **{cfg['champion']}**\n- schedule: {', '.join(cfg['schedule']) or '(none: champion always)'}"
-                       f"\n- explore share: {100 * cfg['explore_share']:.2f}%")
-        right.metric("Arm owning this block", owner, help="Every request outside the explore share goes to this arm.")
-        right.caption(f"Block ends at {time.strftime('%H:%M:%S', time.gmtime(ends))} UTC.")
-    except Exception as e:
-        right.warning(f"arms.toml could not be read: {e}")
+        c.caption("None. The answer rests on the shopper's history and their segment.")
+    subs, cats = {P[p].subcategory for p in views if p in P}, {P[p].category for p in views if p in P}
+    mark = lambda p: "viewed" if p in views else "same subcategory" if P[p].subcategory in subs else "same category" if P[p].category in cats else ""
+    names = sorted((f.stem for f in (ROOT / "src/q2q/strategies").glob("*.py") if f.stem != "__init__"), key=lambda n: (n != champion, n))
+    chosen = st.multiselect("Strategies to compare", names, default=[n for n in names if n in (champion, "baseline", "cold1", "explore")][:4], max_selections=4)
+    for col, name in zip(st.columns(max(len(chosen), 1)), chosen):
+        strat = load(name)
+        req = Request(r["request_id"], r["ts_ms"] / 1000, r["user_id"], bool(r["is_new_user"]), r["page"], r["device"], r["region"], views)
+        items = guard(strat.recommend(req, state), state)
+        col.markdown(f"**{name}**" + (" · champion" if name == champion else ""))
+        col.dataframe(pd.DataFrame([{"#": k + 1, "subcategory": P[p].subcategory, "brand": P[p].brand, "link": mark(p)} for k, p in enumerate(items)]), hide_index=True, height=388)
+        if hasattr(strat, "explain"):
+            col.caption("Score = product of these multipliers")
+            col.dataframe(pd.DataFrame([{"product": P[p].subcategory, "score": round(s, 1), **{k: round(v, 2) for k, v in parts.items()}} for s, p, parts in strat.explain(req, state)]), hide_index=True)
+        if req.log:
+            col.caption(f"Drawn group: **{req.log.get('stratum')}**, propensity {req.log.get('propensity', 0):.3f}, pool of {req.log.get('pool', 0)}.")
+    st.caption("The strategies run again on this page's own copy of the state, so answers can differ slightly from what the router sent.")
 
-# ---------- 2. One live request ----------
-with tabs[1]:
-    try:
-        reqs = rt.query(serve.POLL.replace("LIMIT 60", "LIMIT 30"))
-        if not reqs:
-            st.info("No requests in shop.requests yet.")
-        else:
-            state = live_state()
-            labels = [f"{time.strftime('%H:%M:%S', time.gmtime(r['ts_ms'] / 1000))} · {r['page']} · {r['device']} · {r['region']} · "
-                      f"{'new' if r['is_new_user'] else 'returning'} · {len(r['views'])} views" for r in reqs]
-            i = st.selectbox("Request (newest first)", range(len(reqs)), format_func=labels.__getitem__)
-            r = reqs[i]
-            req = Request(r["request_id"], r["ts_ms"] / 1000, r["user_id"], bool(r["is_new_user"]),
-                          r["page"], r["device"], r["region"], list(r["views"]))
-            P = state.products
-            shopper = state.shopper(req.user_id)
-            st.subheader("The shopper")
-            c = st.columns(4)
-            c[0].metric("Known from history or today", "yes" if shopper else "no")
-            c[1].metric("Products bought", len(shopper.bought) if shopper else 0)
-            c[2].metric("Products viewed before, not bought", len(shopper.viewed) if shopper else 0)
-            top = sorted(shopper.cat_share.items(), key=lambda kv: -kv[1])[:3] if shopper else []
-            c[3].markdown("**Favourite categories**\n\n" + ("\n".join(f"- {k}: {100 * v:.2f}%" for k, v in top) or "none"))
-            lifts = {k: v for k, v in state.segment.get((req.device, req.region), {}).items() if v > 1.5}
-            st.caption(f"Segment {req.device} × {req.region}: " + (", ".join(f"{k} ×{v:.1f}" for k, v in sorted(lifts.items(), key=lambda kv: -kv[1]))
-                                                                     or "no category above ×1.5"))
-            st.markdown("**Recent views** (oldest first)")
-            if req.views:
-                st.dataframe(pd.DataFrame([{"subcategory": P[p].subcategory if p in P else "?", "brand": P[p].brand if p in P else "?",
-                                            "price €": P[p].price if p in P else None, "in stock": state.available(p)} for p in req.views]),
-                             hide_index=True, column_config={"price €": st.column_config.NumberColumn(format="%.2f")})
+
+# ---------- 3. hypotheses ----------
+def hypotheses():
+    text = (ROOT / "docs/SIMULATOR.md").read_text(encoding="utf-8")
+    rows = []
+    for title in ("Verdicts on the first hypotheses", "New hypotheses"):
+        for line in text.split(f"## {title}")[1].split("\n## ")[0].splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if line.startswith("|") and cells[0] not in ("Slug", "") and not set(cells[0]) <= {"-", " "}:
+                rows.append({"slug": cells[0], "status": re.sub(r"\*", "", cells[1]).split(",")[0] if len(cells) == 4 else "open",
+                             "claim or consequence": cells[-1] if len(cells) == 4 else cells[1]})
+    for f in sorted((ROOT / "docs/hypotheses").glob("H-*.md")):
+        status = re.search(r"\*\*status\*\*:\s*(.+)|^status:\s*(.+)", f.read_text(encoding="utf-8"), re.M)
+        rows.append({"slug": f.stem[2:], "status": "tested", "claim or consequence": (status.group(1) or status.group(2))[:160] if status else ""})
+    df = pd.DataFrame(rows)
+    df["write-up"] = df.slug.map(lambda s: (ROOT / f"docs/hypotheses/H-{s}.md").exists())
+    df["live SQL"] = df.slug.map(lambda s: (ROOT / f"sql/hypotheses/H-{s}.sql").exists())
+    counts = df.status.str.split().str[0].value_counts()
+    st.markdown(" ".join(f"<span class='tag'>{k}: {v}</span>" for k, v in counts.items()), unsafe_allow_html=True)
+    st.dataframe(df.sort_values(["write-up", "live SQL"], ascending=False), hide_index=True, width="stretch", height=360)
+    with_sql = sorted(f.stem[2:] for f in (ROOT / "sql/hypotheses").glob("H-*.sql"))
+    if not with_sql:
+        return
+    slug = st.selectbox("Open a hypothesis", with_sql)
+    doc, sql = ROOT / f"docs/hypotheses/H-{slug}.md", (ROOT / f"sql/hypotheses/H-{slug}.sql").read_text(encoding="utf-8")
+    a, c = st.columns(2)
+    a.markdown(doc.read_text(encoding="utf-8") if doc.exists() else "_No write-up yet, only the queries._")
+    statements = [s.strip() for s in sql.split(";\n") if s.strip() and not all(l.startswith("--") for l in s.strip().splitlines())]
+    titles = [next((l.lstrip("- ") for l in reversed(s.splitlines()) if l.startswith("--")), s[:50]) for s in statements]
+    i = c.selectbox("Query to run on live data", range(len(statements)), format_func=titles.__getitem__)
+    if c.button("Run live"):
+        c.dataframe(q("\n".join(l for l in statements[i].splitlines() if not l.startswith("--")).rstrip(";").replace("{TEAM}", rt.TEAM)), hide_index=True)
+    c.code(statements[i], language="sql")
+
+
+# ---------- 4. explore ----------
+def explore():
+    e = report("explore")
+    if e.empty:
+        st.info("No explore rows yet.")
+        return
+    e["click %"], e["buy %"] = 100 * e.clicks / e.requests, 100 * e.purchases / e.requests
+    a, c = st.columns([3, 2])
+    a.dataframe(e[["stratum", "requests", "clicks", "purchases", "click %", "buy %", "pool"]], hide_index=True,
+                column_config={"click %": PCT, "buy %": PCT, "pool": st.column_config.NumberColumn("mean pool size", format="%.0f")})
+    c.altair_chart(alt.Chart(e).mark_bar(color=OKABE[0]).encode(y=alt.Y("stratum:N", title=None, sort="-x"), x=alt.X("click %:Q", title="Click rate per request, %"),
+                   tooltip=["stratum", "requests", "clicks"]).properties(height=220), width="stretch")
+    st.caption(f"{100 * cfg['explore_share']:.0f}% of shoppers see products drawn at random from one of six groups, with the chance of each draw logged. "
+               "This measures what the history log cannot: other categories, favourites, new products. Counts are small, so only large gaps mean anything yet.")
+
+
+# ---------- 5. backlog and journal ----------
+def backlog():
+    a, c = st.columns(2)
+    a.markdown((ROOT / "docs/backlog/README.md").read_text(encoding="utf-8"))
+    journal = (ROOT / "docs/JOURNAL.md").read_text(encoding="utf-8").splitlines()
+    c.markdown("# Journal, newest first\n\n" + "\n".join(reversed([l for l in journal if l.startswith("- ")])))
+
+
+# ---------- 6. raw tables ----------
+def raw():
+    a, c, d, e = st.columns([2, 1, 1, 2])
+    table = a.selectbox("Table", TABLES).replace("{TEAM}", rt.TEAM)
+    n = c.slider("Rows", 10, 200, 25)
+    sample = rt.query(f"SELECT * FROM {table} LIMIT 1")
+    columns = list(sample[0]) if sample else []
+    where = []
+    if table.endswith(".scratch"):
+        kind = d.selectbox("kind", ["(all)"] + sorted(q(f"SELECT DISTINCT kind::String AS kind FROM {table}").kind))
+        if kind != "(all)" and re.fullmatch(r"[A-Za-z0-9_]+", kind):
+            where.append(f"kind::String = '{kind}'")
+    ids = [x for x in ("request_id", "user_id", "product_id") if x in columns]
+    if ids:
+        col = d.selectbox("Filter on", ["(none)"] + ids, key="idcol")
+        value = e.text_input("equals", key="idval")
+        if col != "(none)" and value:
+            if re.fullmatch(r"[A-Za-z0-9_]+", value):
+                where.append(f"{col}::String = '{value}'")
             else:
-                st.caption("No recent views: the strategies fall back on the shopper's history and the segment.")
-            subs = {P[p].subcategory for p in req.views if p in P}
-            cats = {P[p].category for p in req.views if p in P}
+                e.warning("Only letters, digits and underscores.")
+    clause = (" WHERE " + " AND ".join(where)) if where else ""
+    order = " ORDER BY ts DESC" if "ts" in columns else ""
+    sql = f"SELECT * FROM {table}{clause}{order} LIMIT {n}"
+    total = q(f"SELECT count() AS n FROM {table}{clause}").n.iloc[0]
+    st.caption(f"{int(total):,} rows match · {len(columns)} columns · `{sql}`")
+    rows = q(sql)
+    for name in rows.columns:
+        if rows[name].map(lambda v: isinstance(v, (list, dict))).any():
+            rows[name] = rows[name].map(lambda v: json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else v)
+    st.dataframe(rows, hide_index=True, width="stretch", height=520)
 
-            def mark(p):
-                return "viewed" if p in req.views else "same subcategory" if P[p].subcategory in subs else "same category" if P[p].category in cats else ""
 
-            def table(items):
-                return pd.DataFrame([{"#": k + 1, "subcategory": P[p].subcategory, "brand": P[p].brand, "price €": P[p].price, "link to views": mark(p)}
-                                     for k, p in enumerate(items)])
-            cols = st.columns(3)
-            for col, name in zip(cols, ["baseline", "rules", "explore"]):
-                strat = load(name)
-                items = guard(strat.recommend(req, state), state)
-                col.markdown(f"**{name}**")
-                col.dataframe(table(items), hide_index=True, column_config={"price €": st.column_config.NumberColumn(format="%.2f")})
-                if name == "rules":
-                    rows = [{"product": P[p].subcategory, "score": s, **{k: round(v, 3) for k, v in parts.items()}} for s, p, parts in strat.explain(req, state)]
-                    if rows:
-                        col.dataframe(pd.DataFrame(rows), hide_index=True, column_config={"score": st.column_config.NumberColumn(format="%.4f")})
-                    src = (ROOT / "src/q2q/strategies/rules.py").read_text(encoding="utf-8")
-                    note = dict(re.findall(r"^([A-Z_]+)\s*=.*?#\s*(.+)$", src, re.M))
-                    from q2q import state as state_mod
-                    captions = {"appeal": state_mod.appeal.__doc__, "session": f"Last view: {note.get('LAST_VIEW', '')}; other recent view; same subcategory, then category.",
-                                "viewed before": f"History views of a product not bought: {note.get('VIEWED_BEFORE', '')}.",
-                                "favourite category": f"1 + weight × the shopper's share of views in the category: {note.get('SHARE_HOME', '')}.",
-                                "segment": state_mod.segment_from.__doc__, "trend": state_mod.trend_from.__doc__,
-                                "price cut": "2 minus the new price over the starting price, so a 20% cut gives ×1.2."}
-                    col.caption("\n\n".join(f"**{k}**: {v}" for k, v in captions.items()))
-                if name == "explore":
-                    col.caption(f"Stratum drawn: **{req.log.get('stratum')}**, propensity {req.log.get('propensity', 0):.4f} "
-                                f"(stratum probability {req.log.get('p_stratum', 0):.2f}, pool of {req.log.get('pool', 0)}).")
-            st.caption("This page runs the strategies again on the state held by the dashboard, so the answers can differ slightly from what the router sent.")
-    except Exception as e:
-        st.warning(f"Could not show a live request: {e}")
+# ---------- 7. how it works ----------
+def how():
+    a, c = st.columns([3, 1])
+    a.graphviz_chart("""digraph { rankdir=LR; bgcolor="transparent"; node [shape=box, style="rounded", fontname=Helvetica, color="#8FA3C7", fontcolor="#E6EBF4"];
+      edge [fontname=Helvetica, fontsize=10, color="#8FA3C7", fontcolor="#C9D2E3"];
+      shoppers -> "shop.requests" -> arm;
+      subgraph cluster_router { label="router"; color="#56B4E9"; fontcolor="#56B4E9"; style=rounded;
+        state; arm [label="arm choice"]; strategy; guard; state -> strategy; arm -> strategy -> guard; }
+      "shop.events" -> state; "shop.catalog_updates" -> state;
+      guard -> "submissions" -> simulator; simulator -> "feedback"; simulator -> leaderboard;
+      leaderboard -> "block readings"; "feedback" -> "block readings"; "block readings" -> "arms.toml" -> arm [label="hot reload"]; }""", width="stretch")
+    c.markdown("### arms.toml now")
+    c.markdown(f"- champion: **{champion}**\n- block schedule: {', '.join(cfg['schedule']) or 'champion always'}\n- explore share: {100 * cfg['explore_share']:.0f}%\n"
+               + "\n".join(f"- route `{k}`: {', '.join(v) or 'default'}" for k, v in cfg["routes"].items()))
+    st.info("The illustrated explanation is `docs/explainer.html`: open it in a browser. It tells the story in ten pictures, with no code.")
 
-# ---------- 3. Scoreboard ----------
-arm_scores: dict[str, float] = {}
-with tabs[2]:
-    try:
-        b = blocks()
-        if b.empty or b["score"].isna().all():
-            st.info(f"No block with a known lift since {evaluate.START} UTC yet. The first appears one leaderboard refresh after a full block.")
-        else:
-            b["arm"] = b["arm"].str.split("@").str[0]
-            scored = b.dropna(subset=["score"])
-            bars = alt.Chart(scored).mark_bar().encode(
-                x=alt.X("block_end:N", title="block end (UTC)"), y=alt.Y("score:Q", title="score on the block (100 = oracle)"),
-                color=alt.Color("arm:N", scale=alt.Scale(range=PALETTE), title="arm"), tooltip=["block_end", "arm", alt.Tooltip("score", format=".1f")])
-            ref = alt.Chart(b.dropna(subset=["ref_window_score"])).mark_line(point=True, color="#555").encode(
-                x="block_end:N", y="ref_window_score:Q", tooltip=["block_end", alt.Tooltip("ref_window_score", title="reference, hourly", format=".1f")])
-            st.altair_chart(bars + ref, width="stretch")
-            st.caption("Bars: our score per 10-minute block, by arm. Grey line: the reference team's score over the hourly leaderboard window.")
-            arms = pd.DataFrame(evaluate.by_arm(b.to_dict("records")))
-            arm_scores = dict(zip(arms["arm"], arms["score"]))
-            arms["click_rate"] *= 100
-            st.dataframe(arms, hide_index=True, column_config={"score": st.column_config.NumberColumn("mean score", format="%.1f"),
-                                                               "se": st.column_config.NumberColumn("standard error", format="%.1f"), "click_rate": PCT})
-            st.caption("Two hourly windows ten minutes apart differ by one block entering and one leaving, so the change in our purchases minus the baseline's, "
-                       "plus the reading for the block that just left, is our lift on the new block. "
-                       f"That lift as a share of the gap between oracle and baseline ({evaluate.ORACLE_GAP} points) is the block score.")
-            show = b[["block_end", "arm", "requests", "score", "click_rate", "window_score", "ref_window_score"]].copy()
-            show["click_rate"] *= 100
-            st.dataframe(show.iloc[::-1], hide_index=True, column_config={"click_rate": PCT, "score": st.column_config.NumberColumn(format="%.1f"),
-                         "window_score": st.column_config.NumberColumn(format="%.1f"), "ref_window_score": st.column_config.NumberColumn(format="%.1f")})
-    except Exception as e:
-        st.warning(f"Block readings failed: {e}")
-    st.subheader("Reliability, last 3 hours")
-    try:
-        rel = report("reliability")
-        if rel.empty:
-            st.info("No feedback rows in the last 3 hours.")
-        else:
-            rel["answered %"] = rate(rel, "answered")
-            rel["time"] = pd.to_datetime(rel["t"])
-            c1, c2 = st.columns(2)
-            c1.altair_chart(alt.Chart(rel).mark_line(point=True).encode(x=alt.X("time:T", title="10 minutes starting (UTC)"),
-                            y=alt.Y("answered %:Q", title="answered by us (%)")), width="stretch")
-            lat = rel.melt("time", ["p50_ms", "p95_ms"], "quantile", "ms").dropna()
-            c2.altair_chart(alt.Chart(lat).mark_line(point=True).encode(x=alt.X("time:T", title="10 minutes starting (UTC)"), y=alt.Y("ms:Q", title="latency (ms)"),
-                            color=alt.Color("quantile:N", scale=alt.Scale(range=PALETTE), title="")), width="stretch")
-            st.dataframe(rel[["t", "requests", "answered %", "missing", "late", "invalid", "p50_ms", "p95_ms"]].iloc[::-1], hide_index=True,
-                         column_config={"answered %": PCT})
-    except Exception as e:
-        st.warning(f"Reliability query failed: {e}")
 
-# ---------- 4. Strategies ----------
-with tabs[3]:
-    try:
-        live = report("strategies")
-        if not live.empty:
-            live["click rate"], live["purchase rate"] = rate(live, "clicks"), rate(live, "purchases")
-            live["strategy"] = live["strategy"].map(decode)
-            live = live.groupby("strategy", as_index=False).agg({c: ("min" if live[c].dtype == object else "sum") for c in live.columns if c != "strategy"})
-            live["click rate"], live["purchase rate"] = rate(live, "clicks"), rate(live, "purchases")
-            live = live.set_index("strategy")
-    except Exception as e:
-        live = pd.DataFrame()
-        st.warning(f"Live strategy numbers failed: {e}")
-    for f in sorted((ROOT / "src/q2q/strategies").glob("*.py")):
-        if f.stem == "__init__":
-            continue
-        with st.expander(f.stem, expanded=True):
-            st.markdown(importlib.import_module(f"q2q.strategies.{f.stem}").__doc__ or "(no docstring)")
-            if f.stem in live.index:
-                row = live.loc[f.stem]
-                c = st.columns(5)
-                c[0].metric("Requests with feedback", f"{int(row['requests']):,}")
-                c[1].metric("Click rate", f"{row['click rate']:.2f}%")
-                c[2].metric("Purchase rate", f"{row['purchase rate']:.2f}%")
-                c[3].metric("Since (UTC)", row["since"][:16])
-                c[4].metric("Mean block score", f"{arm_scores[f.stem]:.1f}" if f.stem in arm_scores else "no blocks")
-            else:
-                st.caption("Not served live yet.")
+for tab, body in zip(tabs, (overview, one_request, hypotheses, explore, backlog, raw, how)):
+    safe(tab, body)
 
-# ---------- 5. Hypotheses ----------
-with tabs[4]:
-    def md_table(text: str, heading: str) -> pd.DataFrame:
-        part = text.split(heading, 1)[1].split("\n## ", 1)[0] if heading in text else ""
-        rows = [[c.strip().replace("**", "") for c in line.strip().strip("|").split("|")] for line in part.splitlines() if line.startswith("|")]
-        rows = [r for r in rows if not set("".join(r)) <= set("-: ")]
-        return pd.DataFrame(rows[1:], columns=rows[0]) if rows else pd.DataFrame()
-
-    try:
-        sim = (ROOT / "docs" / "SIMULATOR.md").read_text(encoding="utf-8")
-        verdicts, new = md_table(sim, "## Verdicts on the first hypotheses"), md_table(sim, "## New hypotheses")
-        words = [v.split()[0].strip(",") for v in verdicts.get("Verdict", [])] + ["open"] * len(new)
-        counts = pd.Series(words).value_counts()
-        c = st.columns(4)
-        for col, w in zip(c, ["confirmed", "likely", "weak", "open"]):
-            col.metric(w, int(counts.get(w, 0)))
-        st.markdown("**Verdicts on the first hypotheses**")
-        st.dataframe(verdicts, hide_index=True)
-        st.markdown("**New hypotheses** (open)")
-        st.dataframe(new, hide_index=True)
-    except Exception as e:
-        st.warning(f"docs/SIMULATOR.md could not be parsed: {e}")
-    files = sorted((ROOT / "docs" / "hypotheses").glob("H-*.md"))
-    if not files:
-        st.info("No hypothesis files yet (docs/hypotheses/H-<slug>.md). Each new test gets one, with its SQL in sql/hypotheses/.")
-    for f in files:
-        with st.expander(f.stem):
-            st.markdown(f.read_text(encoding="utf-8"))
-            sql = ROOT / "sql" / "hypotheses" / f"{f.stem}.sql"
-            if sql.exists() and st.button("Run live", key=f.stem):
-                try:
-                    st.dataframe(q(sql.read_text(encoding="utf-8")), hide_index=True)
-                except Exception as e:
-                    st.warning(f"{sql.name} failed: {e}")
-
-# ---------- 6. Explore arm ----------
-with tabs[5]:
-    st.caption(f"The explore arm takes a small share of shoppers and shows products the champion would not, drawn at random from one of {len(BASE)} groups, "
-               "to measure what the old carousel's log cannot. Counts are small: read them as direction, not proof.")
-    try:
-        ex = report("explore")
-        if ex.empty:
-            st.info("No explore rows with feedback yet (team_01.scratch, kind = 'explore').")
-        else:
-            ex["click rate"], ex["purchase rate"] = rate(ex, "clicks"), rate(ex, "purchases")
-            st.dataframe(ex[["stratum", "requests", "click rate", "purchase rate", "pool"]], hide_index=True,
-                         column_config={"click rate": PCT, "purchase rate": PCT, "pool": st.column_config.NumberColumn("mean pool size", format="%.1f")})
-    except Exception as e:
-        st.warning(f"Explore query failed: {e}")
+if auto:
+    time.sleep(60)
+    st.cache_data.clear()
+    st.rerun()
