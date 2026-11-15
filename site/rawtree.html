@@ -36,6 +36,7 @@
   .rt-card p b { color: var(--ink); font-weight: 600; }
   .rt-card pre { margin: var(--s2) 0 0; background: rgba(11, 30, 74, .045); border: 1px solid var(--line); border-radius: 10px; padding: var(--s3) var(--s4); font: 12.5px/1.55 var(--mono); color: var(--ink); white-space: pre-wrap; word-break: break-word; max-height: 360px; overflow: auto; }
   .rt-card pre .k { color: var(--ink-3); }
+  .rt-card .rt-tag { font-size: 12px; color: var(--ink); background: rgba(11, 30, 74, .07); border-radius: 99px; padding: 2px 10px; align-self: flex-start; }
   .rt-card .rt-meta { font: 12px var(--mono); color: var(--ink-3); }
   .rt-note { font: 13px var(--mono); color: var(--ink-3); margin: var(--s3) 0 0; }
   @media (max-width: 1000px) { .rt-rows { grid-template-columns: minmax(0, 1fr); } }
@@ -74,35 +75,20 @@
     <p class="rt-small">Below is the newest real row of each kind, read live. Internal strategy names are replaced by the public labels the shop sees, and the server's name is hidden.</p>
   </section>
 
-  <section aria-labelledby="h-memory">
+  <section aria-labelledby="h-telemetry">
     <div class="head">
-      <h2 id="h-memory">1. What the agents think with</h2>
-      <p>How parallel agents work together without talking to each other: questions, reservations and findings are rows that any agent can read.</p>
+      <h2 id="h-telemetry">Telemetry: what we measure as it happens</h2>
+      <p>Raw readings from the agents, the production VM and the competition itself, written the moment they happen and analysed later with SQL.</p>
     </div>
-    <div class="rt-rows" data-group="memory"></div>
+    <div class="rt-rows" data-group="telemetry"></div>
   </section>
 
-  <section aria-labelledby="h-log">
+  <section aria-labelledby="h-state">
     <div class="head">
-      <h2 id="h-log">2. What the live system runs on</h2>
-      <p>The live service and the overnight operator record every decision they take, so a person or an agent can audit it later with one query.</p>
+      <h2 id="h-state">State: what the system acts on</h2>
+      <p>The rows the agents and the live service read back to decide what to do next: shared memory, control and learning data.</p>
     </div>
-    <div class="rt-rows" data-group="log"></div>
-  </section>
-
-  <section aria-labelledby="h-evidence">
-    <div class="head">
-      <h2 id="h-evidence">3. What the models learn from</h2>
-      <p>The data the models learn from and the record of how each idea did, kept so that results can be replayed and checked.</p>
-    </div>
-    <div class="rt-rows" data-group="evidence"></div>
-  </section>
-  <section aria-labelledby="h-traces">
-    <div class="head">
-      <h2 id="h-traces">4. Watching the fleet</h2>
-      <p>The agents' own activity is one more kind of raw data: one row per tool call, loaded from their session logs. Only the structure is kept, never a prompt, an output or a command.</p>
-    </div>
-    <div class="rt-rows" data-group="traces"></div>
+    <div class="rt-rows" data-group="state"></div>
   </section>
 </main>
 
@@ -110,16 +96,16 @@
 
 <script>
 const KINDS = [
-  ["traces", "agent_trace", "Agent traces", "Which agent called which tool and when, the input fields it used, the model, the <b>usage</b> in tokens, whether it touched RawTree and whether it failed. Nested JSON, stored as it comes.", "a trace loader"],
-  ["memory", "question", "Questions", "Work an agent leaves for the others. Each one links to the finding that raised it (<b>parent</b>), so the chain of reasoning can be followed back.", "agents"],
-  ["memory", "claim", "Claims", "Before working on a question, a worker writes a claim and reads the claims back; the earliest wins. Parallel workers never take the same question, with no lock server.", "insight workers"],
-  ["memory", "insight", "Insights", "The finding and a verdict, plus how it was found: the exact <b>sql</b>, the <b>tools_used</b>, the <b>mcp_calls</b> and the time it took. Its <b>next</b> questions become new question rows, which closes the loop.", "insight workers"],
-  ["log", "arms", "Traffic splits", "Every change to which strategy gets which share of shoppers, with the champion, the exploration share and the hash salt.", "the live service"],
-  ["log", "operator", "Operator decisions", "The unattended overnight loop: the per-strategy scores it read (<b>board</b>), what it kept, started or retired, and why (<b>notes</b>).", "the operator"],
-  ["log", "lease", "Single-writer lock", "A heartbeat every few seconds from the one process allowed to answer the shop: host, process id, start time and the strategy it serves.", "the live service"],
-  ["evidence", "explore", "Exploration log", "Lists shown to a small exploration share, with the probability of each list (<b>propensity</b>), so the models learn about products the champion would never show.", "the live service"],
-  ["evidence", "leaderboard", "Leaderboard copies", "Every public leaderboard refresh, kept to replay our own live tests and to read ranks after the fact.", "a logger"],
-  ["evidence", "block", "Test blocks", "The early timed A/B blocks, before the leaderboard scored each model: arm, share, click and purchase rates, lift and score.", "a logger"],
+  ["telemetry", "agent_trace", "Agent traces", "agent telemetry", "One row per tool call: which agent, which tool, the input fields, the model, the <b>usage</b> in tokens, whether it touched RawTree and whether it failed.", "To see what the fleet did, what it cost and where it failed, Langfuse-style, next to everything else.", "a trace loader"],
+  ["telemetry", "lease", "Production heartbeat", "VM telemetry", "A heartbeat every few seconds from the process answering the shop: host, process id, start time and the strategy it serves.", "To prove only one process answers, and to see at once if production stops or restarts.", "the live service"],
+  ["telemetry", "leaderboard", "Leaderboard copies", "competition telemetry", "Every public leaderboard refresh, per team and per model: conversion, cold start, time on deadline, requests.", "To judge each idea on live traffic and to replay our rank over the whole event.", "a logger"],
+  ["telemetry", "block", "Test blocks", "experiment telemetry", "The early timed A/B blocks: arm, share, click and purchase rates, lift and score.", "To decide promotions before the leaderboard scored each model on its own.", "a logger"],
+  ["state", "question", "Questions", "agent memory", "Work an agent leaves for the others, linked to the finding that raised it (<b>parent</b>).", "So any agent can pick up the next piece of work, and the chain of reasoning can be followed back.", "agents"],
+  ["state", "claim", "Claims", "agent memory", "A worker's reservation of a question: agent and time.", "The earliest claim wins, so parallel workers never take the same question, with no lock server.", "insight workers"],
+  ["state", "insight", "Insights", "agent memory", "The finding and a verdict, with the exact <b>sql</b>, the <b>tools_used</b>, the <b>mcp_calls</b> and the <b>next</b> questions.", "So results can be checked and rerun, and each verdict starts the next question.", "insight workers"],
+  ["state", "arms", "Traffic splits", "control", "Every change to which strategy gets which share of shoppers, with the champion, the exploration share and the hash salt.", "So the live service and the agents agree on the split, and every change is on record.", "the live service"],
+  ["state", "operator", "Operator decisions", "control", "The overnight loop's reading of each strategy (<b>board</b>) and what it kept, started or retired, and why (<b>notes</b>).", "So decisions taken with nobody watching can be audited with one query.", "the operator"],
+  ["state", "explore", "Exploration log", "learning data", "Lists shown to a small exploration share, with the probability of each list (<b>propensity</b>).", "So the models learn about products the champion would never show, without bias.", "the live service"],
 ];
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = (n) => n == null ? "–" : Number(n).toLocaleString("en-US");
@@ -145,11 +131,11 @@ function pretty(row) {
 }
 
 function build() {
-  for (const [group, kind, name, what, who] of KINDS) {
+  for (const [group, kind, name, tag, what, why, who] of KINDS) {
     const box = document.querySelector(`[data-group="${group}"]`);
     box.insertAdjacentHTML("beforeend", `<article class="rt-card" id="r-${kind}">
       <div class="rt-head"><h3>${name}<code>kind = '${kind}'</code></h3><span class="rt-n" id="n-${kind}">–<small>rows</small></span></div>
-      <p>${what}</p><p class="rt-meta">written by ${who}</p>
+      <p class="rt-tag mono">${tag}</p><p><b>Stored:</b> ${what}</p><p><b>Why:</b> ${why}</p><p class="rt-meta">written by ${who}</p>
       <pre id="x-${kind}" aria-label="The newest ${name.toLowerCase()} row">waiting for data…</pre></article>`);
   }
 }
