@@ -107,3 +107,7 @@ Case study of 546 purchases on view requests, last 3 h: 56% in the last view's c
 ## 15 Nov 06:33 UTC: price1 as a fourth arm on main; second fresh-eyes agent
 
 price1 = ranker2 x (1 + 0.5 x price percentile in category); shadow mean price shown 53 EUR against 41. Label mfd3c3. Main is now ranker2 / lock1 / lock3 / price1. A second fresh-eyes agent studies purchases our known factors do not explain, and price.
+
+## 15 Nov 06:35 UTC: Santi: test candidates until the freeze rather than play safe; seen1 on new shoppers
+
+Santi prefers that untested candidates get live trials before 08:30 over spending the time on reliability. No more router restarts (new arms use hash labels). seen1 = the last two viewed products in slots 1-2, then ranker2; new-shopper route split ranker2 / ranker8 / seen1, label m7ff44-n.
