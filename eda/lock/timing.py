@@ -8,7 +8,7 @@ import numpy as np
 
 from q2q import rt
 from q2q.state import State
-from q2q.strategies import aff1, ranker2
+from q2q.strategies import super1, ranker2
 from q2q.strategy import Request, guard
 
 SQL = """SELECT request_id::String AS rid, toUnixTimestamp64Milli(ts::DateTime64(3, 'UTC')) AS t, user_id::String AS u, is_new_user::Bool AS new,
@@ -20,7 +20,7 @@ ORDER BY ts::DateTime64(3) DESC LIMIT 200"""
 state = State()
 state.load()
 reqs = [Request(r["rid"], r["t"] / 1000, r["u"], bool(r["new"]), r["page"], r["device"], r["region"], list(r["views"])) for r in rt.query(SQL)]
-for s in (aff1.STRATEGY, ranker2.STRATEGY):
+for s in (super1.STRATEGY, ranker2.STRATEGY):
     s.recommend(reqs[0], state)  # load the model
     ms, bad = [], 0
     for req in reqs:
