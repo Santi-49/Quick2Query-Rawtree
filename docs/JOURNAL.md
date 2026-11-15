@@ -131,3 +131,7 @@ Its independent design matches what runs: GBDT on our feedback, live per-shopper
 ## 15 Nov 07:16 UTC: super2 replaces super1 on main and new shoppers
 
 Read 07:10 (30 min): main aff1 +59.4, lock3 +58.2, ranker2 +48.5, super1 +48.0; new shoppers aff1 +77.6, ranker8 +76.9, super1 +59.2; home super1 -1.2, ranker2 -3.0, aff1 -5.1. Stacking all signals did not help; super2 keeps only purchase taste and the last-category boost. super1 stays on the home page.
+
+## 15 Nov 07:29 UTC: fallback freeze armed on the VM for 08:25
+
+The laptop goes offline 30-40 min. If nobody intervenes, a background job on the VM sets at 08:25 UTC: main aff1 / lock3, new shoppers ranker8 / aff1, home super1, explore_share 0 (the 07:10 leaders). Creating ~/q2q/NO_FREEZE on the VM cancels it; log in ~/q2q/logs/freeze.log.
