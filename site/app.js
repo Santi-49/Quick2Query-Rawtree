@@ -451,7 +451,7 @@ const FIGURES = [
   ["Memory in RawTree", [
     ["sql_files", "SQL files run in RawTree", "features, reports and hypothesis tests"],
     ["insights", "insights in RawTree", "question, finding and verdict, stored as rows"],
-    ["rawtree", "RawTree queries by agents", "{mcp_calls_total} through MCP, {rawtree_shell_calls} through Python and the CLI"],
+    ["rawtree", "RawTree queries by agents", "through MCP, Python and the CLI combined"],
     ["questions", "questions open", "written by agents, waiting for a worker"],
   ]],
 ];
