@@ -67,7 +67,7 @@ ROUTES = {"": "", "no_views": "-h", "new_shopper": "-n"}
 
 
 VARIANT = {"blend1": ("ranker2", "b"), "ranker6": ("ranker2", "c"), "ranker7": ("ranker2", "d"), "ranker8": ("ranker2", "e"),
-           "knn1": ("ranker2", "k"), "pin1": ("ranker2", "p")}
+           "knn1": ("ranker2", "k"), "pin1": ("ranker2", "p"), "lock1": ("ranker2", "l")}
 """Variants and ablations of one model: (the model, a letter). They show as the model's public word plus the letter in capitals: only letters, digits and "-" are known to be accepted."""
 
 
