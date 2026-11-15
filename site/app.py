@@ -53,13 +53,27 @@ SELECT count() AS open FROM (SELECT DISTINCT id::String AS q FROM {TEAM}.scratch
 WHERE q NOT IN (SELECT id::String FROM {TEAM}.scratch WHERE kind::String = 'insight')""",
     "examples": """
 SELECT * FROM {TEAM}.scratch
-WHERE kind::String IN ('insight', 'question', 'claim', 'arms', 'operator', 'lease', 'explore', 'leaderboard', 'block')
+WHERE kind::String IN ('agent_trace', 'insight', 'question', 'claim', 'arms', 'operator', 'lease', 'explore', 'leaderboard', 'block')
   AND (kind::String != 'leaderboard' OR (team_id::String = '{TEAM}' AND mode::String = 'practice'))
 ORDER BY ts::String DESC LIMIT 1 BY kind::String""",
     "lease": "SELECT ts::String AS ts, started::String AS started, dateDiff('second', ts::DateTime64(3), now64(3)) AS age FROM {TEAM}.scratch WHERE kind::String = 'lease' ORDER BY ts::String DESC LIMIT 1",
+    "traces_who": """
+SELECT if(subagent::Bool, 'subagents', 'main sessions') AS who, count() AS calls, uniqExact(agent::String) AS agents,
+       countIf(rawtree::Bool) AS rawtree, countIf(is_error::Bool) AS errors, sum(toInt64OrZero(toString(usage.output_tokens))) AS out_tokens
+FROM {TEAM}.scratch WHERE kind::String = 'agent_trace' GROUP BY who ORDER BY who""",
+    "traces_hour": """
+SELECT toStartOfHour(ts::DateTime64(3))::String AS h, count() AS calls, countIf(rawtree::Bool) AS rawtree, countIf(subagent::Bool) AS sub
+FROM {TEAM}.scratch WHERE kind::String = 'agent_trace' GROUP BY h ORDER BY h""",
+    "lb_rank": """
+SELECT toStartOfHour(parseDateTimeBestEffort(t))::String AS h, round(avg(rk), 1) AS rank, count() AS snaps FROM (
+  SELECT ts::String AS t, team_id::String AS id,
+         rank() OVER (PARTITION BY ts::String ORDER BY toFloat64OrZero(toString(conversion)) DESC) AS rk
+  FROM {TEAM}.scratch WHERE kind::String = 'leaderboard' AND mode::String = 'practice' AND team_id::String LIKE 'team_%')
+WHERE id = '{TEAM}' GROUP BY h ORDER BY h""",
+    "verdicts": "SELECT verdict::String AS v, count() AS n FROM {TEAM}.scratch WHERE kind::String = 'insight' GROUP BY v",
     "scratch": "SELECT kind::String AS k, count() AS n, max(ts::String) AS last FROM {TEAM}.scratch GROUP BY k ORDER BY n DESC",
 }
-EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15, "examples": 30, "lease": 5}   # slower-moving sources, seconds
+EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15, "examples": 30, "lease": 5, "traces_who": 60, "traces_hour": 60, "lb_rank": 300, "verdicts": 30}   # slower-moving sources, seconds
 
 cache: dict[str, dict] = {}       # name -> {"rows", "at", "error", "ms"}
 categories: dict[str, str] = {}
@@ -164,6 +178,12 @@ def examples(rows: list[dict]) -> dict:
     return out
 
 
+def analysis(rows: dict) -> dict:
+    """Results computed in RawTree from the rows we saved without a schema."""
+    return {"traces": rows["traces_who"], "trace_hours": rows["traces_hour"], "rank": rows["lb_rank"],
+            "verdicts": {r["v"]: r["n"] for r in rows["verdicts"]}}
+
+
 def stats() -> dict:
     s = {}
     try:
@@ -203,6 +223,7 @@ def live() -> dict:
         "insights": insights(rows["insights"]),
         "questions_open": (rows["questions"] or [{}])[0].get("open"),
         "scratch": [{"kind": r["k"], "n": r["n"], "last": scratch_text(r["last"])[:16]} for r in rows["scratch"]],
+        "analysis": analysis(rows),
         "prod": {k: scratch_text(v)[:19] for k, v in (rows["lease"] or [{}])[0].items()},
         "stats": s,
     }
@@ -223,9 +244,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
         elif path == "/api/rawtree":
-            rows = {k: cache.get(k, {}).get("rows", []) for k in ("scratch", "examples")}
+            rows = {k: cache.get(k, {}).get("rows", []) for k in SQL}
             body = json.dumps({"now": time.strftime("%H:%M:%S", time.gmtime()), "examples": examples(rows["examples"]),
-                               "counts": {r["k"]: r["n"] for r in rows["scratch"]}}, default=str).encode()
+                               "counts": {r["k"]: r["n"] for r in rows["scratch"]}, "analysis": analysis(rows)}, default=str).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Cache-Control", "public, max-age=10, s-maxage=10")

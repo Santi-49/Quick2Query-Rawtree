@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-15T09:28:33Z",
+  "generated_at": "2026-11-15T10:33:31Z",
   "developers": 1,
   "sessions": 6,
-  "tool_calls": 2537,
-  "subagents": 45,
+  "tool_calls": 2673,
+  "subagents": 46,
   "strategy_files": 31,
   "hypothesis_files": 26,
   "sql_files": 30,
@@ -12,6 +12,6 @@
   "insight_rows_backfill": 26,
   "questions_open": 14,
   "mcp_calls_total": 28,
-  "rawtree_shell_calls": 383,
-  "rawtree_agent_calls": 411
+  "rawtree_shell_calls": 394,
+  "rawtree_agent_calls": 422
 }

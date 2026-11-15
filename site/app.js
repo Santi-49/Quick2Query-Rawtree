@@ -522,6 +522,7 @@ $("cards").addEventListener("click", (e) => {
 // ---------- poll ----------
 let last = null;
 const KINDS = [
+  ["agent_trace", "Agent traces", "Every tool call an agent made: who, which tool, tokens, failures", "a trace loader"],
   ["insight", "Agent findings", "A question, the finding and a verdict, with the MCP calls it took", "insight workers"],
   ["question", "Questions asked", "Questions an agent left for a worker to answer", "agents"],
   ["claim", "Work claims", "A worker reserves a question so two never take the same one", "insight workers"],
@@ -570,7 +571,36 @@ function champ(arms) {
   arms.forEach((a, i) => { $("chb-" + i).style.flexGrow = a.n; text("chl-" + i, `${Math.round(100 * a.n / total)}%`); });
   text("ch-total", `· ${fmt(total)} shoppers`);
 }
+function results(a) {
+  if (!a) return;
+  const body = $("res-traces");
+  if (body && a.traces && a.traces.length) {
+    body.innerHTML = a.traces.map((r) => `<tr><th scope="row">${esc(r.who)}</th><td class="num mono">${fmt(r.calls)}</td><td class="num mono">${fmt(r.agents)}</td><td class="num mono">${fmt(r.rawtree)}</td><td class="num mono">${fmt(r.errors)}</td><td class="num mono">${fmt(r.out_tokens / 1e6, 2)} M</td></tr>`).join("");
+  }
+  const hours = a.trace_hours || [];
+  if (hours.length && $("res-hours").dataset.n !== String(hours.length)) {
+    $("res-hours").dataset.n = String(hours.length);
+    const max = Math.max(...hours.map((x) => x.calls));
+    $("res-hours").innerHTML = hours.map((x) => `<span title="${esc(x.h.slice(5, 13))}:00 UTC, ${x.calls} calls, ${x.rawtree} on RawTree"><i style="height:${100 * x.calls / max}%"></i><b style="height:${100 * x.rawtree / max}%"></b></span>`).join("");
+    text("res-hours-axis", `calls per hour, ${hours[0].h.slice(5, 13)}:00 to ${hours[hours.length - 1].h.slice(5, 13)}:00 UTC · dark: calls that queried RawTree`);
+  }
+  const rank = (a.rank || []).filter((x) => x.snaps >= 10);
+  if (rank.length && $("res-rank").dataset.n !== String(rank.length)) {
+    $("res-rank").dataset.n = String(rank.length);
+    $("res-rank").innerHTML = rank.map((x) => `<span title="${esc(x.h.slice(5, 13))}:00 UTC, rank ${x.rank}"><i style="height:${100 * (43 - x.rank) / 42}%"></i><em>${Math.round(x.rank)}</em></span>`).join("");
+    const best = rank.reduce((m, x) => x.rank < m.rank ? x : m, rank[0]);
+    text("res-rank-axis", `hourly average of ${fmt(rank.reduce((n, x) => n + x.snaps, 0))} copies · best hour ${best.h.slice(5, 13)}:00 UTC, about ${Math.round(best.rank)}th of 42`);
+  }
+  const v = a.verdicts || {};
+  const total = (v.supported || 0) + (v.rejected || 0) + (v.open || 0);
+  if (total) {
+    $("res-verdicts").innerHTML = [["supported", "the data backed the idea"], ["rejected", "the data said no"], ["open", "needs another question"]]
+      .map(([k, d]) => `<div><dd class="mono">${fmt(v[k] || 0)}</dd><dt><b>${k}</b>${d}</dt></div>`).join("") +
+      `<p class="res-note">${Math.round(100 * (v.rejected || 0) / total)}% of ideas were rejected by the data before they cost live traffic.</p>`;
+  }
+}
 function render(d) {
+  results(d.analysis);
   prod(d.prod);
   champ(d.arms);
   kinds(d.scratch);

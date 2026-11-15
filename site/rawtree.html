@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=10">
+<link rel="stylesheet" href="/static/style.css?v=12">
 <style>
   .rt-back { font: 500 14px var(--mono); color: var(--ink-2); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-height: 44px; display: inline-flex; align-items: center; }
   .rt-back:hover { color: var(--ink); border-color: var(--ink-3); }
@@ -17,6 +17,15 @@
   .rt-intro h1 { font-size: clamp(30px, 2.8vw, 48px); font-weight: 700; letter-spacing: -.025em; max-width: 30ch; }
   .rt-intro p { font-size: 18px; line-height: 1.55; color: var(--ink-2); max-width: 80ch; margin: 0 0 var(--s3); }
   .rt-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5); }
+  .rt-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s4); margin: var(--s5) 0 var(--s4); max-width: 1100px; }
+  .rt-sum div { border-top: 2px solid var(--ink); padding-top: var(--s2); }
+  .rt-sum dd { margin: 0; font-size: clamp(30px, 2.6vw, 44px); font-weight: 700; letter-spacing: -.03em; }
+  .rt-sum dt { font-size: 14px; color: var(--ink-2); }
+  .rt-why { margin: 0; padding-left: 18px; max-width: 90ch; font-size: 16px; line-height: 1.6; color: var(--ink-2); }
+  .rt-why b { color: var(--ink); }
+  .rt-results a { color: var(--ink); font-weight: 600; text-underline-offset: 3px; display: inline-flex; min-height: 44px; align-items: center; }
+  @media (max-width: 800px) { .rt-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .rt-intro .rt-small { font-size: 15px; color: var(--ink-3); max-width: 90ch; }
   .rt-card { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 14px; padding: var(--s4) var(--s5); min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
   .rt-card .rt-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s4); flex-wrap: wrap; }
   .rt-card h3 { margin: 0; font-size: 19px; font-weight: 600; }
@@ -47,9 +56,29 @@
 <main>
   <section class="rt-intro" aria-labelledby="h-page">
     <h1 id="h-page">What our agents keep in RawTree</h1>
-    <p>The shop's data is only half of what lives in RawTree. Every agent and every service we built writes to one table of ours, <code>team_01.scratch</code>. Each kind of row has its own fields, and RawTree needs no schema for them: a new kind of row is just a new insert, queried with the same SQL.</p>
-    <p>Below is the newest real row of each kind, read live. Internal strategy names are replaced by the same public labels the shop sees, and the server's name is hidden.</p>
     <p class="rt-note" id="status">loading…</p>
+    <div class="rt-sum">
+      <div><dd class="mono" id="sum-rows">–</dd><dt>raw rows in one table, no schema</dt></div>
+      <div><dd class="mono" id="sum-traces">–</dd><dt>agent tool calls traced in RawTree</dt></div>
+      <div><dd class="mono" id="sum-agents">–</dd><dt>agents seen in the traces</dt></div>
+      <div><dd class="mono" id="sum-rt">–</dd><dt>agent tool calls that queried RawTree</dt></div>
+    </div>
+    <ul class="rt-why">
+      <li><b>We built a fleet of agents, then watched it with RawTree.</b> Every tool call they made is a raw row, analysed with SQL like any other data.</li>
+      <li><b>The fleet remembers in RawTree.</b> Questions, claims and findings are rows any agent can read, so parallel agents never collide.</li>
+      <li><b>The system logs itself in RawTree.</b> Traffic splits, operator decisions, the single-writer lock, exploration and leaderboard history.</li>
+    </ul>
+    <p class="rt-results"><a href="/#h-results">See what these rows tell us on the live page</a></p>
+    <p class="rt-small">The shop's data is only half of what lives in RawTree. Every agent and every service we built writes to one table of ours, <code>team_01.scratch</code>. Each kind of row has its own fields, and RawTree needs no schema for them: a new kind of row is just a new insert, queried with the same SQL.</p>
+    <p class="rt-small">Below is the newest real row of each kind, read live. Internal strategy names are replaced by the same public labels the shop sees, and the server's name is hidden.</p>
+  </section>
+
+  <section aria-labelledby="h-traces">
+    <div class="head">
+      <h2 id="h-traces">0. The fleet's own traces</h2>
+      <p>One row per tool call, loaded from the agents' session logs. Only the structure is kept: never a prompt, an output or a command.</p>
+    </div>
+    <div class="rt-rows" data-group="traces"></div>
   </section>
 
   <section aria-labelledby="h-memory">
@@ -81,6 +110,7 @@
 
 <script>
 const KINDS = [
+  ["traces", "agent_trace", "Agent traces", "Which agent called which tool and when, the input fields it used, the model, the <b>usage</b> in tokens, whether it touched RawTree and whether it failed. Nested JSON, stored as it comes.", "a trace loader"],
   ["memory", "question", "Questions", "Work an agent leaves for the others. Each one links to the finding that raised it (<b>parent</b>), so the chain of reasoning can be followed back.", "agents"],
   ["memory", "claim", "Claims", "Before working on a question, a worker writes a claim and reads the claims back; the earliest wins. Parallel workers never take the same question, with no lock server.", "insight workers"],
   ["memory", "insight", "Insights", "The finding and a verdict, plus how it was found: the exact <b>sql</b>, the <b>tools_used</b>, the <b>mcp_calls</b> and the time it took. Its <b>next</b> questions become new question rows, which closes the loop.", "insight workers"],
@@ -137,6 +167,14 @@ async function tick() {
       if (pre.dataset.html !== html) { pre.dataset.html = html; pre.innerHTML = html; }
     }
     const total = Object.values(d.counts).reduce((a, b) => a + Number(b || 0), 0);
+    const tr = (d.analysis && d.analysis.traces) || [];
+    const sum = (k) => tr.reduce((n, x) => n + Number(x[k] || 0), 0);
+    document.getElementById("sum-rows").textContent = fmt(total);
+    if (tr.length) {
+      document.getElementById("sum-traces").textContent = fmt(sum("calls"));
+      document.getElementById("sum-agents").textContent = fmt(sum("agents"));
+      document.getElementById("sum-rt").textContent = fmt(sum("rawtree"));
+    }
     document.getElementById("status").textContent = `live · ${fmt(total)} rows in team_01.scratch · read at ${d.now} UTC`;
   } catch (e) {
     document.getElementById("status").textContent = "could not reach the server, retrying";

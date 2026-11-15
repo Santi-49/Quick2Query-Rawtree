@@ -72,6 +72,7 @@ See the newest real row of each kind, live: **[quick2query.com/rawtree](https://
 
 | kind | What for | Written by | Rows |
 |---|---|---|---:|
+| `agent_trace` | Every tool call our agents made, loaded from their session logs as nested JSON: agent, tool, input fields, model, token usage, errors. A Langfuse-style trace store with no extra service. Structure only, never prompts or outputs (`scripts/ingest_traces.py`) | trace loader | 2,661 |
 | `leaderboard` | A copy of the public leaderboard at every refresh, so agents can query our standing over time with SQL | leaderboard logger | 45,526 |
 | `lease` | The single-writer lock: the prod router renews it every 5 s; any other router refuses to start | live router | 13,553 |
 | `explore` | Requests answered by the small random arm, with what was shown, so models learn without bias | live router | 4,236 |
