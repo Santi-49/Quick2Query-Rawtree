@@ -4,6 +4,7 @@
     SHOW_NAMES=1 uv run python site/app.py   # also decode model_version into strategy names
 """
 import json
+import re
 import os
 import threading
 import time
@@ -125,9 +126,25 @@ def scratch_text(v) -> str:
     return v if isinstance(v, str) else "" if v is None else json.dumps(v)
 
 
+_hide = None
+
+
+def hide_names(text: str) -> str:
+    """Strategy names in agent text become their public labels, as in the stream, unless SHOW_NAMES=1."""
+    global _hide
+    if os.environ.get("SHOW_NAMES") == "1":
+        return text
+    if _hide is None:
+        from q2q import strategy
+        names = [f.stem for f in (ROOT / "src/q2q/strategies").glob("*.py") if f.stem not in ("__init__", "baseline", "explore")]
+        pattern = re.compile(r"\b(" + "|".join(sorted(names, key=len, reverse=True)) + r")\b")
+        _hide = lambda t: pattern.sub(lambda m: strategy.label(m.group(1)), t)
+    return _hide(text)
+
+
 def insights(rows: list[dict]) -> list[dict]:
     keys = ("ts", "agent", "source", "question", "finding", "verdict")
-    return [{**{k: scratch_text(r.get(k)) for k in keys}, "ts": scratch_text(r.get("ts"))[:16],
+    return [{**{k: hide_names(scratch_text(r.get(k))) for k in keys}, "ts": scratch_text(r.get("ts"))[:16],
              "mcp_calls": int(r.get("mcp_calls") or 0) if str(r.get("mcp_calls") or "0").isdigit() else 0} for r in rows]
 
 
