@@ -255,3 +255,27 @@ pipx run $(sed 's/^/--with /' starter/requirements.txt | tr '\n' ' ') jupyter no
 - Anything a team cannot explain in the presentation may be penalised.
 
 Questions? Find the RawTree team at the stand. Good luck!
+
+## The insight loop: agents with RawTree as shared memory
+
+This project was built as a loop: a question, an SQL test, a strategy if the answer is useful, a live verdict, the next question (`docs/hypotheses/`, `docs/JOURNAL.md`). `scripts/insight_worker.py` runs that loop with agents. Each worker takes the oldest open question, claims it, and answers it with headless Claude Code that can only reach RawTree through the RawTree MCP server (`.mcp.json`; read-only SQL, at most 4 queries). The answer is stored as an insight, and the agent's follow-up questions go back into the queue.
+
+The memory is rows in `team_01.scratch`, append-only, latest row per id wins (`src/q2q/memory.py`):
+
+| kind | fields |
+|---|---|
+| `question` | `id, ts, text, origin` (`seed`, `agent:<name>`, `human`), `parent` (question id or "") |
+| `claim` | `id` (question id), `agent, ts` |
+| `insight` | `id` (question id), `ts, agent, source` (`backfill`, `live`), `question, sql, finding, verdict` (`supported`, `rejected`, `open`), `next` (follow-up questions), `tools_used, mcp_calls, duration_s` |
+
+```
+uv run scripts/backfill_memory.py                       # once: the 26 answered hypotheses plus seed questions
+uv run scripts/insight_worker.py --workers 3 --runs 2   # 3 agents in parallel, 2 questions each
+uv run scripts/agent_stats.py                           # site/stats.json
+```
+
+Ask a question yourself with `memory.ask("...")`.
+
+**Scaling.** A worker inserts a claim and re-reads all claims on the question; the earliest wins and the others move on. A claim with no insight after 15 minutes is void, so a crashed worker loses nothing. Workers therefore run safely in parallel on any number of machines with the same key (`--name` keeps their names apart). Because the memory is RawTree rows, every agent and every human reads the same state with one SQL query.
+
+**Another dataset.** Change the table list and the casting hint in `PROMPT` in `scripts/insight_worker.py` and the seed questions in `scripts/backfill_memory.py`. Nothing else is specific to this shop.

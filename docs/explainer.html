@@ -85,7 +85,7 @@ svg .end{text-anchor:end}
 
 <header>
 <h1>quick2query · what we built, in plain words</h1>
-<p class="lede">A recommender for a simulated online shop, explained in twelve short sections with pictures. No code needed to follow it.</p>
+<p class="lede">A recommender for a simulated online shop, explained in thirteen short sections with pictures. No code needed to follow it.</p>
 
 <nav class="toc" aria-label="Contents">
 <h2>Contents</h2>
@@ -101,6 +101,7 @@ svg .end{text-anchor:end}
 <li><a href="#explore">Why a little traffic is random</a></li>
 <li><a href="#prior">History is a prior, live is the truth</a></li>
 <li><a href="#never">What must never happen</a></li>
+<li><a href="#agents">Who built it: one developer and AI agents</a></li>
 <li><a href="#now">Where we are</a></li>
 </ol>
 </nav>
@@ -232,6 +233,7 @@ svg .end{text-anchor:end}
 <h2><span class="n">3</span>The pieces</h2>
 <p><strong>The router</strong> is the only program that answers shoppers. Every fraction of a second it reads the new requests, decides which strategy answers each one, checks the answer and sends it. <strong>The state</strong> is what the router knows right now: the catalogue, what is out of stock, what is trending in the last 15 minutes, and what each shopper bought and viewed.</p>
 <p><strong>The guard</strong> removes anything out of stock or repeated and fills the gaps with best sellers, so a broken experiment cannot produce an invalid answer. <strong><code>arms.toml</code></strong> is the one switch: which strategies share the shoppers for each kind of request, and how many shoppers go to the explore arm. <strong>The trainer</strong> re-fits our learned model, the <code>ranker</code>, on the outcomes of our own answers every 20 minutes. <strong>RawTree</strong> is the memory.</p>
+<p>Since 18:10 UTC on 14 November the router runs on a small cloud machine, a VM, as a service that restarts by itself. The laptop only trains the models and pushes each new one to the VM.</p>
 <figure>
 <svg viewBox="0 0 480 856" role="img" aria-label="Architecture. Shoppers create requests and events; the shop publishes catalogue updates. The router builds its state from events and catalogue updates, chooses an arm for each request, lets the strategy pick 10 products and passes them through the guard. Answers go to team_01.submissions. The simulator scores them into the leaderboard and into team_01.feedback. The leaderboard gives one reading per model, the readings decide arms.toml, and arms.toml steers the router. The trainer reads the feedback every 20 minutes and writes a new ranker model file, which the router loads. All tables live in RawTree, the shared memory.">
 <defs><marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="f-line"/></marker></defs>
@@ -440,7 +442,7 @@ svg .end{text-anchor:end}
 <text x="26" y="508" class="sm">about 0.4% end in a purchase: our leak</text>
 <text x="10" y="550" class="sm mu">Arms in one card share its shoppers evenly.</text>
 </svg>
-<figcaption>Figure 6. The arms in <code>arms.toml</code> now. The dark box is the champion. New shoppers with views have no list of their own yet, so they get the same three arms as ordinary requests, read separately. The purchase rates are our readings of 14 November between 16:00 and 16:35 UTC.</figcaption>
+<figcaption>Figure 6. The arms in <code>arms.toml</code> at 16:35 UTC on 14 November; the final arms are in section 13. The dark box is the champion. New shoppers with views have no list of their own yet, so they get the same three arms as ordinary requests, read separately. The purchase rates are our readings of 14 November between 16:00 and 16:35 UTC.</figcaption>
 </figure>
 </section>
 
@@ -504,6 +506,7 @@ svg .end{text-anchor:end}
 <p>For each candidate it reads 21 inputs: the product's appeal, popularity and price, how it relates to the session, whether the shopper viewed it before, the shopper's share of views in its category, the segment, the page, the device. It predicts the chance of a click. We then multiply by the chance that a click becomes a purchase, which we measured live: 81% for a recent view, 27% for anything else.</p>
 <p>It is trained again every 20 minutes, so it follows the shop as the day goes on. The explore arm matters here. A model can only learn about products that were shown, and explore brings outcomes on products the champion never shows.</p>
 <p>The first model went live at 16:10 UTC on 601,187 impressions and 1,794 clicks. Tested on the newest fifth of the data, which it had not seen, it put a clicked product above an unclicked one 78% of the time, against 71% for the slot alone. At 16:35 UTC it became champion, after leading <code>rules2</code> in two 30-minute windows: 1.54% against 1.29% for returning shoppers and 2.41% against 2.29% for new shoppers.</p>
+<p>Its successor, <code>ranker2</code>, has been champion since 18:28 UTC. It reads 34 inputs, adds the shopper's carts and their taste for the words in product descriptions, and learns the chance that a click becomes a purchase instead of using the fixed 81% and 27%. <code>ranker8</code> is <code>ranker2</code> with its noisiest inputs removed and the rank from a rule strategy, <code>rules5</code>, added as an input. It is the one that does best for new shoppers.</p>
 <figure>
 <svg viewBox="0 0 480 504" role="img" aria-label="A loop of four steps. One, we answer shoppers with the champion, the challengers and 5 percent explore. Two, the outcomes come back: each product shown and the one clicked. Three, the trainer, LightGBM with 21 inputs, learns the chance of a click every 20 minutes. Four, the ranker scores candidates as the chance of a click, times the chance the click becomes a purchase, 81 percent for a recent view and 27 percent otherwise, times trend and price cut. Its answers become the next training data.">
 <defs><marker id="m8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="f-line"/></marker></defs>
@@ -573,7 +576,7 @@ svg .end{text-anchor:end}
 <text x="10" y="440" class="sm b">The history log, by contrast: one category</text>
 <text x="10" y="462" class="sm b">per request, popular products only.</text>
 </svg>
-<figcaption>Figure 9. The six explore groups and their base chances in <code>explore.py</code>. The arm gets 5% of shoppers today (<code>explore_share</code> in <code>arms.toml</code>), raised from 3% when the <code>ranker</code> went live. In the history log the top 1,000 products took 96% of impressions.</figcaption>
+<figcaption>Figure 9. The six explore groups and their base chances in <code>explore.py</code>. The arm got 3% of shoppers at first, 5% once the <code>ranker</code> went live, 2% overnight, and 0 for the final round (<code>explore_share</code> in <code>arms.toml</code>). In the history log the top 1,000 products took 96% of impressions.</figcaption>
 </figure>
 </section>
 
@@ -643,12 +646,88 @@ svg .end{text-anchor:end}
 </section>
 
 <!-- 12 -->
+<section id="agents">
+<h2><span class="n">12</span>Who built it: one developer and a team of AI agents</h2>
+<p>One developer built quick2query. The work was done with Claude Code, an AI assistant that writes and runs code. The developer decided what to try; AI agents did most of the building, measuring and watching. Each agent had one job.</p>
+<table>
+<thead><tr><th scope="col">Agent</th><th scope="col">What it did</th></tr></thead>
+<tbody>
+<tr><td><strong>Main session</strong></td><td>Decides, plans and keeps the journal, <code>docs/JOURNAL.md</code>. Every promotion and every retirement is a dated line there.</td></tr>
+<tr><td><strong>Builders</strong></td><td>Subagents that write the pieces whose behaviour is fixed and testable: strategies, trainers, the offline replay, hypothesis tests.</td></tr>
+<tr><td><strong>Fresh eyes</strong></td><td>Analysts that get only the tables and the problem statement, not our beliefs, and report what they find. They found the category lock (lists that stay in the category of the last product viewed sell more) and each shopper's purchase taste.</td></tr>
+<tr><td><strong>Insight workers</strong></td><td>Many agents in parallel, each answering one open question with SQL. See below.</td></tr>
+<tr><td><strong>Night operator</strong></td><td><code>scripts/night_operator.py</code>, a loop that ran with nobody watching. Every 15 minutes it read the score of each arm, started 150-minute trials from a queue, and retired arms that fell clearly behind, measured in standard errors (a z-score). It never dropped the champion.</td></tr>
+</tbody>
+</table>
+<p><strong>Insight workers</strong> (<code>scripts/insight_worker.py</code>, <code>src/q2q/memory.py</code>) are several Claude Code agents that run in parallel with no one at the keyboard. Each one claims an open question, stored as a row in <code>team_01.scratch</code>. It answers it only by running read-only SQL in RawTree, through the RawTree MCP server, the connector that lets an agent query RawTree directly. It writes its finding and a verdict back as a row, and adds its follow-up questions as new rows.</p>
+<p>The claim makes it safe to run many workers on many machines: a question goes to whoever claimed it first. The memory is RawTree rows, so every agent and the developer see the same questions and answers. The 26 past hypotheses (<code>docs/hypotheses/</code>) are loaded into the same memory, marked as a backfill.</p>
+<figure>
+<svg viewBox="0 0 480 486" role="img" aria-label="The loop the agents run. One, a question, stored as a row in team_01.scratch. Two, SQL in RawTree, read-only, run by an insight worker. Three, a strategy file in src/q2q/strategies, written by a builder. Four, a live arm on a hash share of shoppers, set in arms.toml. Five, a verdict from our feedback and the leaderboard. The next question is queued as a new row and the loop starts again.">
+<defs><marker id="m12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="f-line"/></marker></defs>
+<rect x="70" y="20" width="395" height="72" rx="10" class="f-paper s-fg w2"/>
+<text x="88" y="50" class="b">1 · A question</text><text x="450" y="50" class="end sm mu">memory</text>
+<text x="88" y="78" class="sm">a row in <tspan class="mono">team_01.scratch</tspan></text>
+<line x1="267" y1="92" x2="267" y2="110" class="s-line w2" marker-end="url(#m12)"/>
+<rect x="70" y="112" width="395" height="72" rx="10" class="f-paper s-fg w2"/>
+<text x="88" y="142" class="b">2 · SQL in RawTree</text><text x="450" y="142" class="end sm mu">insight worker</text>
+<text x="88" y="170" class="sm">read-only, through the MCP server</text>
+<line x1="267" y1="184" x2="267" y2="202" class="s-line w2" marker-end="url(#m12)"/>
+<rect x="70" y="204" width="395" height="72" rx="10" class="f-paper s-fg w2"/>
+<text x="88" y="234" class="b">3 · A strategy file</text><text x="450" y="234" class="end sm mu">builder</text>
+<text x="88" y="262" class="mono">src/q2q/strategies/</text>
+<line x1="267" y1="276" x2="267" y2="294" class="s-line w2" marker-end="url(#m12)"/>
+<rect x="70" y="296" width="395" height="72" rx="10" class="f-acs s-ac w2"/>
+<text x="88" y="326" class="b">4 · A live arm</text><text x="450" y="326" class="end sm mu">online</text>
+<text x="88" y="354" class="sm">a hash share of shoppers, <tspan class="mono">arms.toml</tspan></text>
+<line x1="267" y1="368" x2="267" y2="386" class="s-line w2" marker-end="url(#m12)"/>
+<rect x="70" y="388" width="395" height="72" rx="10" class="f-paper s-fg w2"/>
+<text x="88" y="418" class="b">5 · A verdict</text><text x="450" y="418" class="end sm mu">operator</text>
+<text x="88" y="446" class="sm">from our feedback and the leaderboard</text>
+<path d="M70 424 H36 V56 H66" class="f-none s-line w2" marker-end="url(#m12)"/>
+<text x="26" y="240" class="mid sm mu" transform="rotate(-90 26 240)">the next question, as a new row</text>
+</svg>
+<figcaption>Figure 12. The same loop as Figure 2, now run by agents. The right-hand labels say who does each step. Steps 1 and 2 only read RawTree; step 4 is the only one that touches live shoppers.</figcaption>
+</figure>
+<p>Three real findings from the insight workers on the morning of 15 November, in their own numbers:</p>
+<table>
+<thead><tr><th scope="col">Question</th><th scope="col">What the worker found</th><th scope="col">Verdict</th></tr></thead>
+<tbody>
+<tr><td>Do price changes move a product's purchases per view?</td><td>In the hour after a price cut, purchases per view rose from 6.09% to 6.46% (1,198 cuts). After a raise they fell from 4.72% to 4.10% (3,793 raises), and views fell 15%. 8 MCP calls.</td><td>supported</td></tr>
+<tr><td>How many products in today's events are missing from the catalogue?</td><td>600 of the 5,600 products seen today are not in <code>shop.catalog</code>. They are products added during the event, announced in <code>shop.catalog_updates</code>, and take 10.02% of today's purchases. 4 MCP calls.</td><td>supported</td></tr>
+<tr><td>Is the page that converts best also the one that earns most?</td><td>Product pages convert best (1.82%), but category pages earn slightly more per request (EUR 0.7875 against 0.7818), because their orders are larger. In effect a tie. 6 MCP calls.</td><td>rejected</td></tr>
+</tbody>
+</table>
+<figure>
+<svg viewBox="0 0 480 364" role="img" aria-label="The project in numbers: 1 developer, 2,314 tool calls, 42 subagents, 31 strategy files, 26 hypothesis files, 30 SQL files, 61 journal entries, 32 insight rows of which 6 live and 26 backfill, and 28 RawTree MCP calls by the insight workers.">
+<g class="f-paper s-fg w2">
+<rect x="10" y="10" width="146" height="108" rx="10"/><rect x="167" y="10" width="146" height="108" rx="10"/><rect x="324" y="10" width="146" height="108" rx="10"/>
+<rect x="10" y="128" width="146" height="108" rx="10"/><rect x="167" y="128" width="146" height="108" rx="10"/><rect x="324" y="128" width="146" height="108" rx="10"/>
+<rect x="10" y="246" width="146" height="108" rx="10"/><rect x="167" y="246" width="146" height="108" rx="10"/><rect x="324" y="246" width="146" height="108" rx="10"/>
+</g>
+<text x="24" y="54" class="big ac">1</text><text x="24" y="82" class="sm b">developer</text><text x="24" y="104" class="sm mu">who decides</text>
+<text x="181" y="54" class="big ac">2,314</text><text x="181" y="82" class="sm b">tool calls</text><text x="181" y="104" class="sm mu">in Claude Code</text>
+<text x="338" y="54" class="big ac">42</text><text x="338" y="82" class="sm b">subagents</text><text x="338" y="104" class="sm mu">one job each</text>
+<text x="24" y="172" class="big ac">31</text><text x="24" y="200" class="sm b">strategy files</text><text x="24" y="222" class="sm mu">one idea each</text>
+<text x="181" y="172" class="big ac">26</text><text x="181" y="200" class="sm b">hypotheses</text><text x="181" y="222" class="sm mu">each a verdict</text>
+<text x="338" y="172" class="big ac">30</text><text x="338" y="200" class="sm b">SQL files</text><text x="338" y="222" class="sm mu">run in RawTree</text>
+<text x="24" y="290" class="big ac">61</text><text x="24" y="318" class="sm b">journal entries</text><text x="24" y="340" class="sm mu">dated decisions</text>
+<text x="181" y="290" class="big ac">32</text><text x="181" y="318" class="sm b">insight rows</text><text x="181" y="340" class="sm mu">6 live, 26 backfill</text>
+<text x="338" y="290" class="big ac">28</text><text x="338" y="318" class="sm b">MCP calls</text><text x="338" y="340" class="sm mu">by the workers</text>
+</svg>
+<figcaption>The project in numbers, from <code>site/stats.json</code> at 08:46 UTC on 15 November. MCP calls are the RawTree queries the live insight workers ran.</figcaption>
+</figure>
+<p><strong>Why this goes beyond one shop.</strong> Any stream whose data drifts needs the same loop: device telemetry, logs, prices. Watch the stream, ask a question, test the answer on a small share, adapt. Only the SQL and the strategy files change.</p>
+</section>
+
+<!-- 13 -->
 <section id="now">
-<h2><span class="n">12</span>Where we are</h2>
-<p>The dated decisions from <code>docs/JOURNAL.md</code>, Saturday 14 November, times in UTC. Today <code>ranker</code> is champion and 5% of shoppers go to the explore arm. Requests with recent views are shared in thirds by <code>ranker</code>, <code>rules2</code> and <code>rules4</code>. Requests with no recent views are shared in halves by <code>cold2</code> and <code>rules2</code>.</p>
+<h2><span class="n">13</span>Where we are</h2>
+<p>The dated decisions from <code>docs/JOURNAL.md</code>, times in UTC. The final arms were set at 07:59 on Sunday 15 November. <code>ranker2</code> answers ordinary requests and the home page. <code>ranker8</code> answers new shoppers with recent views. No shopper goes to the explore arm.</p>
+<p>The morning's challengers, <code>aff1</code>, <code>lock3</code>, <code>super1</code> and <code>super2</code>, multiplied signals that <code>ranker2</code> already uses. Some led after 18 and 30 minutes, but over a 75-minute read none beat the champions. The final round runs from 09:00 to 11:00 UTC on 15 November; its results are not known yet.</p>
 <table>
 <thead><tr><th scope="col">Time</th><th scope="col">What happened</th></tr></thead>
 <tbody>
+<tr><th scope="colgroup" colspan="2">Saturday 14 November</th></tr>
 <tr><td class="t">13:10</td><td>Plan approved by Santi, stratified explore arm chosen. Build started.</td></tr>
 <tr><td class="t">13:26</td><td>Switchover: the starter stopped and <code>q2q serve</code> took over on the laptop. 26 requests went to the fallback. Champion <code>baseline</code>, explore 3%.</td></tr>
 <tr><td class="t">13:28</td><td><code>rules</code> on alternate 10-minute blocks against <code>baseline</code>.</td></tr>
@@ -667,6 +746,19 @@ svg .end{text-anchor:end}
 <tr><td class="t">16:35</td><td><strong>Home page: the signal is the cart, not the view.</strong> Products added to the cart and never bought made 16 of 24 home purchases of returning shoppers. <code>cold2</code> uses carts and today's views and replaces <code>cold1</code> on half of home requests.</td></tr>
 <tr><td class="t">16:35</td><td><code>rules4</code> in test on a third of ordinary requests: the first recent view leads, and the session's category is the one with most views. Category pages are not a leak: 2.02% against 1.85% for product pages.</td></tr>
 <tr><td class="t">16:35</td><td>Wide-feature study, interim: 185 inputs instead of 21 rank clicks and purchases better on live data. A model trained on history does not transfer to live purchases.</td></tr>
+<tr><td class="t">17:00</td><td>The night operator starts: every 15 minutes it reads each arm's score and drops or promotes arms by itself.</td></tr>
+<tr><td class="t">17:15</td><td><code>ranker2</code> in test, with 13 more inputs and a learned purchase model.</td></tr>
+<tr><td class="t">17:25</td><td><code>rules4</code> promoted to champion; fewer arms at once, explore down to 2%.</td></tr>
+<tr><td class="t">18:10</td><td>The router moves from the laptop to the VM. The laptop keeps training and pushes each new model.</td></tr>
+<tr><td class="t">18:28</td><td><strong><code>ranker2</code> promoted to champion.</strong> Team rank over 60 minutes: 14th at 17:20, 9th at 18:25.</td></tr>
+<tr><td class="t">21:12</td><td><code>rules5</code> off ordinary requests after trailing in every window since 17:20: <code>ranker2</code> answers them alone. 11th of 42 teams over 60 minutes.</td></tr>
+<tr><td class="t">22:35</td><td>Clean window, champion only: 8th of 42, +40.9 (top team +54.8). Ordinary 1.80%, new shoppers 2.80%, home page 0.54% against the baseline's 0.57%. The home page is the gap we did not close.</td></tr>
+<tr><th scope="colgroup" colspan="2">Sunday 15 November</th></tr>
+<tr><td class="t">03:30</td><td>The operator retires <code>blend1</code> on ordinary requests and <code>ranker8</code> on the home page. Neither was ahead after its 150-minute trial.</td></tr>
+<tr><td class="t">06:05</td><td>Exploration over, operator stopped. No home-page idea beat <code>ranker2</code> live over 3 hours: 0.59% against <code>cold2</code> 0.51% and <code>pin1</code> 0.48%.</td></tr>
+<tr><td class="t">06:20–07:16</td><td>Morning challengers built from the fresh-eyes findings: <code>lock1</code>, <code>lock3</code>, <code>aff1</code>, <code>super1</code>, <code>super2</code>. <code>ranker8</code> becomes the base for new shoppers: +78.5 against +63.1 for <code>ranker2</code> over 3 hours. Early reads put <code>lock3</code> and <code>aff1</code> ahead.</td></tr>
+<tr><td class="t">07:59</td><td><strong>Final arms set.</strong> 75-minute read: ordinary requests <code>ranker2</code> +55.0 against <code>aff1</code> +52.3, <code>lock3</code> +50.7, <code>super1</code> +44.8, <code>super2</code> +38.4; new shoppers <code>ranker8</code> +85.9 against <code>aff1</code> +67.7. The early leads were noise. Final: <code>ranker2</code> on ordinary requests and the home page, <code>ranker8</code> on new shoppers, explore 0.</td></tr>
+<tr><td class="t">09:00–11:00</td><td>Final round, on new shoppers and products, with the leaderboard hidden. Results not known yet.</td></tr>
 </tbody>
 </table>
 </section>
