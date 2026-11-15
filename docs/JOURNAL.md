@@ -79,3 +79,9 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - Rejected offline: hot1 (cold2 times live buys per view plus two history multipliers). +1.2 pts organic top 10 over cold2, all of it from the history multipliers; below ranker2 (5.7% vs 6.3%). Live product counts add nothing for the home page. 38% of organic home purchases are re-buys we may not show.
 - H-home-who: home shoppers buy organically as often as everyone else (10.4% vs 10.3% in 30 min); what home lacks is session intent. Today's carts convert ×2.5 history carts and ×5 other products inside the same home lists, and our lists show 22% of them. Repurchase looks best on organic hit rate but sells 0 live, so organic10 must not pick home arms.
 - Built pin1 (ranker2 with up to 3 of today's carts pinned first). Queued on the home route after ranker8, live trial only (ranker4, a similar pin, lost an all-routes replay, but this evidence is home-specific and live).
+
+## 15 Nov 03:30 UTC
+
+- Operator verdicts: blend1 retired on ordinary requests (z 0.3); ranker8 retired on the home page (z 0.0). ranker8 kept on ordinary requests after 150 min. Last 60 min: ranker2 +55.4, ranker8 +52.0 on ordinary requests, ranker8 +69.5 vs ranker2 +64.3 on new shoppers. Noise.
+- Operator bug: trials are keyed by strategy name across routes, so ranker8, still on trial for ordinary requests, was re-queued on the home page instead of pin1. Fixed by hand at 03:27: pin1 replaces ranker8 on the home page, queue no_views = ["pin1"]. Not fixing the code before the final.
+- VM services now restart after any crash with no give-up limit (systemd drop-in, 14 Nov night, untested on purpose).
