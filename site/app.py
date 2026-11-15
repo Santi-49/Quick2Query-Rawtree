@@ -195,6 +195,11 @@ class Handler(SimpleHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    def end_headers(self):
+        if not self.path.startswith("/api/"):
+            self.send_header("Cache-Control", "public, max-age=60")
+        super().end_headers()
+
     def log_message(self, *a):
         pass
 

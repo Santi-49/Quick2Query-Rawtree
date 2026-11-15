@@ -242,3 +242,4 @@ figure svg { width: 100%; height: auto; display: block; overflow: visible; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+.intro .case { font-size: 15px; line-height: 1.55; color: var(--ink-2, #3a4a66); max-width: 62ch; margin: var(--s3) 0 0; padding-left: 12px; border-left: 2px solid currentColor; }
