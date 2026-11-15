@@ -127,3 +127,7 @@ A research agent listed the likely templates (position-based click model plus a 
 ## 15 Nov 07:12 UTC: third fresh agent (full design): nothing new to build
 
 Its independent design matches what runs: GBDT on our feedback, live per-shopper state from shop.events, bought items excluded, carts as a feature, live catalogue state. Its new claims were already tested and lost live: viewed items forced into slot 1 (seen1, +45 against +90) and carts pinned first (pin1, -0.5 against +3.1). Trend: no lift, as we found. Price: cheapest quintile best in history, the opposite of the live feedback study; price stays a plain model input. No new arm.
+
+## 15 Nov 07:16 UTC: super2 replaces super1 on main and new shoppers
+
+Read 07:10 (30 min): main aff1 +59.4, lock3 +58.2, ranker2 +48.5, super1 +48.0; new shoppers aff1 +77.6, ranker8 +76.9, super1 +59.2; home super1 -1.2, ranker2 -3.0, aff1 -5.1. Stacking all signals did not help; super2 keeps only purchase taste and the last-category boost. super1 stays on the home page.
