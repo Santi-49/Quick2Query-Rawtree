@@ -119,3 +119,7 @@ Santi: the goal is top 5, do things differently. Per-arm read 06:35 (35 min): lo
 ## 15 Nov 07:00 UTC: first read of the new arms; seen1 dropped; laptop offline about 07:10-08:00
 
 18 min since the 06:42 reset: main lock3 +71.7 (487 requests) against ranker2 +48.2 (485), super1 +53.7, aff1 +49.6; new shoppers ranker8 +90.5, aff1 +72.9, seen1 +45.5; home ranker2 -2.5, aff1 -4.4. seen1 dropped; lock3 joins the new-shopper route. Small samples. The arms keep running on the VM while the laptop is offline (no retraining for about 50 min: models about 70 min old by 08:00, within the 60-min tie range).
+
+## 15 Nov 07:05 UTC: public-simulator research and the competition test
+
+A research agent listed the likely templates (position-based click model plus a purchase step, cascade, multinomial logit with an outside option, RecoGym-style latent factors, a hand-written persona generator). Competition test on 8 h of feedback (about 72k lists): slot-2 click rate does not fall when the slot-1 item is strong (strong slot-2 items: 1.69% / 1.51% / 2.18% with weak / mid / strong slot 1). No sign of items stealing each other's click, so per-item scoring and sorting by P(buy) stays right; no assortment trick to exploit.
