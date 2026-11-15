@@ -50,8 +50,9 @@ WHERE ts::DateTime64(3) > now64(3) - INTERVAL 15 MINUTE AND served_by::String = 
     "questions": """
 SELECT count() AS open FROM (SELECT DISTINCT id::String AS q FROM {TEAM}.scratch WHERE kind::String = 'question')
 WHERE q NOT IN (SELECT id::String FROM {TEAM}.scratch WHERE kind::String = 'insight')""",
+    "scratch": "SELECT kind::String AS k, count() AS n, max(ts::String) AS last FROM {TEAM}.scratch GROUP BY k ORDER BY n DESC",
 }
-EVERY = {"insights": 15, "insight_count": 15, "questions": 15}   # slower-moving sources, seconds
+EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15}   # slower-moving sources, seconds
 
 cache: dict[str, dict] = {}       # name -> {"rows", "at", "error", "ms"}
 categories: dict[str, str] = {}
@@ -168,6 +169,7 @@ def live() -> dict:
         "arms": [{"label": name_of(r["mv"]), "n": r["n"]} for r in rows["arms"]],
         "insights": insights(rows["insights"]),
         "questions_open": (rows["questions"] or [{}])[0].get("open"),
+        "scratch": [{"kind": r["k"], "n": r["n"], "last": scratch_text(r["last"])[:16]} for r in rows["scratch"]],
         "stats": s,
     }
 

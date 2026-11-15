@@ -293,3 +293,13 @@ figure svg { width: 100%; height: auto; display: block; overflow: visible; }
 .mdetail-grid h3 { font-size: 15px; font-weight: 600; margin: 0 0 var(--s1); }
 .mdetail-grid p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
 @media (max-width: 900px) { .mdetail-grid { grid-template-columns: minmax(0, 1fr); } }
+.part { border-top: 3px solid var(--ink); padding-top: var(--s6); }
+.part h2 { font-size: clamp(30px, 2.8vw, 48px); }
+.part-lead { margin: 0 0 var(--s6); font-size: 18px; line-height: 1.55; color: var(--ink-2); max-width: 80ch; }
+.pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s5); }
+.pillars > div { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 14px; padding: var(--s4) var(--s5); }
+.pillars h3 { margin: 0 0 var(--s2); font-size: 17px; font-weight: 600; }
+.pillars p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+.kinds .num { text-align: right; white-space: nowrap; padding-right: 0; padding-left: var(--s4); }
+.kinds td.num { color: var(--ink); }
+@media (max-width: 900px) { .pillars { grid-template-columns: minmax(0, 1fr); } }

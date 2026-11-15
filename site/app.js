@@ -521,7 +521,35 @@ $("cards").addEventListener("click", (e) => {
 
 // ---------- poll ----------
 let last = null;
+const KINDS = [
+  ["insight", "Agent findings", "A question, the finding and a verdict, with the MCP calls it took", "insight workers"],
+  ["question", "Questions asked", "Questions an agent left for a worker to answer", "agents"],
+  ["claim", "Work claims", "A worker reserves a question so two never take the same one", "insight workers"],
+  ["arms", "Traffic splits", "Every change to which strategy gets which share of shoppers", "the router"],
+  ["operator", "Operator decisions", "The overnight loop's reading of each strategy and what it kept or retired", "the operator"],
+  ["lease", "Single-writer lock", "A heartbeat that proves only one process answers the shop", "the router"],
+  ["explore", "Exploration log", "Lists shown to the exploration share, so models learn about products the champion skips", "the router"],
+  ["leaderboard", "Leaderboard copies", "Every public leaderboard refresh, to read our own live tests", "a logger"],
+  ["block", "Test blocks", "The result of each early timed A/B block", "a logger"],
+];
+function kinds(rows) {
+  const body = $("kinds");
+  if (!body || !rows || !rows.length) return;
+  const by = Object.fromEntries(rows.map((r) => [r.kind, r]));
+  const known = new Set(KINDS.map((k) => k[0]));
+  const other = rows.filter((r) => !known.has(r.kind)).reduce((n, r) => n + Number(r.n || 0), 0);
+  const list = KINDS.filter(([k]) => by[k]).map(([k, name, what, who]) => [k, name, what, who, by[k].n, by[k].last]);
+  if (other) list.push(["other", "Tests and probes", "Checks of the key, the client and the tools", "the developer", other, ""]);
+  const keys = list.map((r) => r[0]).join();
+  if (body.dataset.keys !== keys) {
+    body.dataset.keys = keys;
+    body.innerHTML = list.map(([k, name, what, who]) => `<tr><th scope="row">${esc(name)}</th><td>${esc(what)}</td><td>${esc(who)}</td><td class="num mono" id="kn-${k}">–</td><td class="num mono" id="kl-${k}"></td></tr>`).join("");
+  }
+  list.forEach(([k, , , , n, last]) => { count("kn-" + k, Number(n)); text("kl-" + k, last ? last.slice(5) : ""); });
+}
+
 function render(d) {
+  kinds(d.scratch);
   const age = d.stream_age_s;
   $("dot").className = "dot " + (age != null && age < 20 ? "on" : "stale");
   $("status").innerHTML = age == null ? "starting" : `${age < 20 ? "live" : "stale"} · data ${fmt(age)} s old<span class="wide"> · ${d.now} UTC</span>`;
