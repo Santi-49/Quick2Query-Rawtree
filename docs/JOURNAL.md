@@ -139,3 +139,8 @@ The laptop goes offline 30-40 min. If nobody intervenes, a background job on the
 ## 15 Nov 07:59 UTC: final arms set; the morning's new arms did not beat the champions
 
 75-min read to 07:55: main ranker2 +55.0 (1,774 requests), aff1 +52.3, lock3 +50.7, super1 +44.8, super2 +38.4; new shoppers ranker8 +85.9 (825), aff1 +67.7; home ranker2 -0.3, aff1 -0.3, super1 -1.6. The early leads of lock3 and aff1 (07:00, 07:10) were noise. Final: main ranker2, new shoppers ranker8, home ranker2, explore_share 0. The VM fallback freeze is cancelled (NO_FREEZE).
+
+## 15 Nov 08:06 UTC: page logger stopped; from-scratch test of organic purchases as an intent label
+
+scripts/site_changes.py fetched the challenge's main page every 5 min since 14 Nov 16:40, against the AGENTS.md rule (only /api/state). Stopped; EVENT_CHANGES.md held 6 entries repeated about 160 times, deduplicated.
+From scratch: could a shopper's next organic purchase or cart (30 min after our list) serve as an abundant intent label? 5,085 request-purchase pairs, last 4 h: the future item was in our list 7.9% of the time and was bought from the list 0.7% of the time when shown, against 2.9% list conversion otherwise. Organic purchases do not reveal what a list will sell (and a list purchase may replace the organic one, so the test is biased); no new arm. Reading of the morning: the observational lifts (category x2, taste x4) were already captured by ranker2's features (same category as the last view, history category shares, carts), so arms that multiplied them on top tied or lost.
