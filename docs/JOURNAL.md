@@ -135,3 +135,7 @@ Read 07:10 (30 min): main aff1 +59.4, lock3 +58.2, ranker2 +48.5, super1 +48.0; 
 ## 15 Nov 07:29 UTC: fallback freeze armed on the VM for 08:25
 
 The laptop goes offline 30-40 min. If nobody intervenes, a background job on the VM sets at 08:25 UTC: main aff1 / lock3, new shoppers ranker8 / aff1, home super1, explore_share 0 (the 07:10 leaders). Creating ~/q2q/NO_FREEZE on the VM cancels it; log in ~/q2q/logs/freeze.log.
+
+## 15 Nov 07:59 UTC: final arms set; the morning's new arms did not beat the champions
+
+75-min read to 07:55: main ranker2 +55.0 (1,774 requests), aff1 +52.3, lock3 +50.7, super1 +44.8, super2 +38.4; new shoppers ranker8 +85.9 (825), aff1 +67.7; home ranker2 -0.3, aff1 -0.3, super1 -1.6. The early leads of lock3 and aff1 (07:00, 07:10) were noise. Final: main ranker2, new shoppers ranker8, home ranker2, explore_share 0. The VM fallback freeze is cancelled (NO_FREEZE).
