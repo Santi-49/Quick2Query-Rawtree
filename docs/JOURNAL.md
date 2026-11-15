@@ -85,3 +85,9 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - Operator verdicts: blend1 retired on ordinary requests (z 0.3); ranker8 retired on the home page (z 0.0). ranker8 kept on ordinary requests after 150 min. Last 60 min: ranker2 +55.4, ranker8 +52.0 on ordinary requests, ranker8 +69.5 vs ranker2 +64.3 on new shoppers. Noise.
 - Operator bug: trials are keyed by strategy name across routes, so ranker8, still on trial for ordinary requests, was re-queued on the home page instead of pin1. Fixed by hand at 03:27: pin1 replaces ranker8 on the home page, queue no_views = ["pin1"]. Not fixing the code before the final.
 - VM services now restart after any crash with no give-up limit (systemd drop-in, 14 Nov night, untested on purpose).
+
+## 15 Nov 06:05 UTC: exploration over
+
+- Last 3 h (06:00): ordinary ranker2 2.02% vs ranker8 1.96%; new shoppers ranker8 2.73% vs ranker2 2.42% (z about 0.9); home ranker2 0.59%, cold2 0.51%, pin1 0.48% (operator: pin1 z -0.5, retired). The home-page ideas did not beat ranker2 live.
+- Operator stopped for good; queue empty. Arms set by hand: ranker2 on ordinary and home requests; new shoppers split ranker2 / ranker8 until 08:00 to decide that route. explore_share 0.02 until the freeze.
+- Restart rehearsal at 06:02: router back and answering within about 60 s, 0 errors; first window after restart compute 37 ms/req, max latency 2.7 s (warm-up).
