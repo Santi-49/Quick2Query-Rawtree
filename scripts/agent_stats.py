@@ -14,6 +14,29 @@ from q2q import memory, rt
 ROOT = Path(__file__).resolve().parents[1]
 TRANSCRIPTS = Path.home() / ".claude" / "projects" / "c--Users-romag-Documents-datathon-fme-2026"
 TOOL_USE = re.compile(r'"type":"tool_use","id":"([^"]+)","name":"([^"]+)"')
+# A shell call that runs SQL in RawTree: the ad hoc script, the CLI, the client, a pull or a report.
+RAWTREE_SHELL = re.compile(r"q\.py|rtree|rt\.query|q2q (pull|report)|run_sql|sql/(reports|hypotheses|features)")
+
+
+def rawtree_calls() -> tuple[int, int]:
+    """(MCP calls, shell calls running SQL in RawTree) made by agents in the transcripts, each tool call once."""
+    mcp, shell = set(), set()
+    for f in TRANSCRIPTS.rglob("*.jsonl"):
+        for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+            if '"tool_use"' not in line:
+                continue
+            try:
+                content = json.loads(line).get("message", {}).get("content", [])
+            except ValueError:
+                continue
+            for c in content if isinstance(content, list) else []:
+                if c.get("type") != "tool_use":
+                    continue
+                if c["name"].startswith("mcp__rawtree__"):
+                    mcp.add(c["id"])
+                elif c["name"] in ("Bash", "PowerShell") and RAWTREE_SHELL.search(str(c.get("input", {}).get("command", ""))):
+                    shell.add(c["id"])
+    return len(mcp), len(shell)
 
 
 def main() -> None:
@@ -25,6 +48,7 @@ def main() -> None:
         WHERE kind::String = 'insight' GROUP BY k LIMIT 10 SETTINGS max_execution_time=20""")}
     mcp = rt.query("""SELECT sum(mcp_calls::Int64) n FROM {TEAM}.scratch
         WHERE kind::String = 'insight' LIMIT 1 SETTINGS max_execution_time=20""")[0]["n"]
+    mcp_agents, shell = rawtree_calls()
     stats = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "developers": 1,
@@ -38,7 +62,9 @@ def main() -> None:
         "insight_rows_live": counts.get("insight:live", 0),
         "insight_rows_backfill": counts.get("insight:backfill", 0),
         "questions_open": len(memory.open_questions(1000)),
-        "mcp_calls_total": int(mcp or 0),
+        "mcp_calls_total": int(mcp or 0) + mcp_agents,
+        "rawtree_shell_calls": shell,
+        "rawtree_agent_calls": int(mcp or 0) + mcp_agents + shell,
     }
     (ROOT / "site").mkdir(exist_ok=True)
     (ROOT / "site" / "stats.json").write_text(json.dumps(stats, indent=2) + "\n", encoding="utf-8")

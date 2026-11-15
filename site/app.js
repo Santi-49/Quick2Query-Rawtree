@@ -451,7 +451,7 @@ const FIGURES = [
   ["Memory in RawTree", [
     ["sql_files", "SQL files run in RawTree", "features, reports and hypothesis tests"],
     ["insights", "insights in RawTree", "question, finding and verdict, stored as rows"],
-    ["mcp", "RawTree MCP calls", "made by the insight workers"],
+    ["rawtree", "RawTree queries by agents", "{mcp_calls_total} through MCP, {rawtree_shell_calls} through Python and the CLI"],
     ["questions", "questions open", "written by agents, waiting for a worker"],
   ]],
 ];
@@ -463,7 +463,7 @@ function figures(v) {
   if (box.dataset.keys !== keys) {
     box.dataset.keys = keys;
     box.innerHTML = groups.map(([name, figs]) => `<div class="grp"><h3 class="mono">${name}</h3><dl class="tiles">` +
-      figs.map(([k, label, note]) => `<div class="fig"><dt><b>${label}</b><span>${note}</span></dt><dd class="mono" id="f-${k}">–</dd></div>`).join("") +
+      figs.map(([k, label, note]) => `<div class="fig"><dt><b>${label}</b><span>${note.replace(/\{(\w+)\}/g, (_, k) => fmt(v[k]))}</span></dt><dd class="mono" id="f-${k}">–</dd></div>`).join("") +
       "</dl></div>").join("");
     groups.forEach(([, figs]) => figs.forEach(([k]) => delete shown["f-" + k]));
   }
@@ -556,7 +556,7 @@ ${arms} strategies live`,
   text("l-str", `${fmt(s.strategy_files)} strategies built`);
   text("l-arms", `${arms} on live traffic now`);
   text("l-ins", `${fmt(insights)} verdicts recorded`);
-  figures({ ...s, arms, insights, mcp: s.mcp_calls_total, questions: d.questions_open });
+  figures({ ...s, arms, insights, rawtree: s.rawtree_agent_calls, questions: d.questions_open });
   text("tested-at", s.generated_at ? `Agent-log counts as of ${s.generated_at.slice(0, 16).replace("T", " ")} UTC.` : "");
   cards(d.insights);
   text("ins-cap", `${fmt(insights)} recorded, ${fmt(d.questions_open)} questions open.`);
