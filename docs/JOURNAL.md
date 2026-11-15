@@ -103,3 +103,7 @@ Home requests have no recent views, but 82% of those shoppers viewed products ea
 ## 15 Nov 06:28 UTC: lock3, a soft lock, as a third arm on main
 
 Case study of 546 purchases on view requests, last 3 h: 56% in the last view's category; about 117 (21%) cross-category, mostly Books & Media and Toys & Baby, half from slot 1, which lock1 would drop. lock3 multiplies in-category scores by 2 (shadow: 7.7 of 10 in category). Main split ranker2 / lock1 / lock3, label m461a2.
+
+## 15 Nov 06:33 UTC: price1 as a fourth arm on main; second fresh-eyes agent
+
+price1 = ranker2 x (1 + 0.5 x price percentile in category); shadow mean price shown 53 EUR against 41. Label mfd3c3. Main is now ranker2 / lock1 / lock3 / price1. A second fresh-eyes agent studies purchases our known factors do not explain, and price.
