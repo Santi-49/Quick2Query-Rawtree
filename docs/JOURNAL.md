@@ -123,3 +123,7 @@ Santi: the goal is top 5, do things differently. Per-arm read 06:35 (35 min): lo
 ## 15 Nov 07:05 UTC: public-simulator research and the competition test
 
 A research agent listed the likely templates (position-based click model plus a purchase step, cascade, multinomial logit with an outside option, RecoGym-style latent factors, a hand-written persona generator). Competition test on 8 h of feedback (about 72k lists): slot-2 click rate does not fall when the slot-1 item is strong (strong slot-2 items: 1.69% / 1.51% / 2.18% with weak / mid / strong slot 1). No sign of items stealing each other's click, so per-item scoring and sorting by P(buy) stays right; no assortment trick to exploit.
+
+## 15 Nov 07:12 UTC: third fresh agent (full design): nothing new to build
+
+Its independent design matches what runs: GBDT on our feedback, live per-shopper state from shop.events, bought items excluded, carts as a feature, live catalogue state. Its new claims were already tested and lost live: viewed items forced into slot 1 (seen1, +45 against +90) and carts pinned first (pin1, -0.5 against +3.1). Trend: no lift, as we found. Price: cheapest quintile best in history, the opposite of the live feedback study; price stays a plain model input. No new arm.
