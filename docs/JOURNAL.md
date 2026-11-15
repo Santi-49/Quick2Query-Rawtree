@@ -95,3 +95,7 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 ## 15 Nov 06:20 UTC: lock1 on half of main
 
 A fresh-eyes agent, given only the problem, found in live feedback that 45% of our slots sit outside the last view's category and convert at half the rate; lists with 9-10 in-category items convert 4.1% against 1.1% (observational). lock1 = ranker2's scores, row filled from the last view's category first (shadow: 10.0 of 10 in category against 4.5, 7 ms). Main route split ranker2 / lock1, edited on the VM by hand. The router restart for its label cost 78 unlabelled answers in minute 06:18. Decision at about 07:30: if lock1 leads, it becomes the main champion. Note: the laptop dashboard's sync overwrites the local arms.toml, so edit arms on the VM.
+
+## 15 Nov 06:30 UTC: lock2 on half of the home page
+
+Home requests have no recent views, but 82% of those shoppers viewed products earlier today (shadow, 200 requests). lock2 treats today's last 5 organic views as the recent views and runs lock1. Label is its hash, md2ddd-h, so no router restart. Read at about 07:30 with lock1.
