@@ -29,8 +29,12 @@ class Lock1(Strategy):
         click, buy = (m.predict(X) for m in base.models)
         scored = sorted(((float(k) * float(b) * state.trend.get(p.subcategory, 1.0) * (2 - state.price_cut.get(p.id, 1.0)), p.category == cat, p.id)
                          for k, b, p in zip(click, buy, cands)), reverse=True)
+        if self.boost:   # soft lock: in-category scores multiplied, one ranking
+            return [pid for _, pid in sorted(((s * (self.boost if ok else 1.0), pid) for s, ok, pid in scored), reverse=True)[:10]]
         inside = [pid for _, ok, pid in scored if ok]
         return (inside + [pid for _, ok, pid in scored if not ok])[:10]
+
+    boost = 0.0   # 0 = hard lock
 
 
 STRATEGY = Lock1()
