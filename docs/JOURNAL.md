@@ -115,3 +115,7 @@ Santi prefers that untested candidates get live trials before 08:30 over spendin
 ## 15 Nov 06:42 UTC: goal top 5; aff1 and super1 live on every route, lock1 and price1 dropped
 
 Santi: the goal is top 5, do things differently. Per-arm read 06:35 (35 min): lock1 +33 against ranker2 +52 on main, dropped. ranker8 beats ranker2 for new shoppers over 3 h (+78.5 against +63.1, 3.8k requests each): ranker8 is now the new-shopper base. Second fresh-eyes agent: a shopper's live purchase share of a category multiplies conversion up to x4 (monotone, within buyers); subcategory live rates spread 10x; a few products trend. aff1 = ranker2 x affinity (mac5e8). super1 = ranker2 x affinity x last-category x2 x live subcategory rate x hot product, home page uses today's views (m6eb87). Price showed no penalty but no clear gain: price1 dropped. Arms: main ranker2/lock3/aff1/super1, home ranker2/aff1/super1, new shoppers ranker8/seen1/aff1/super1.
+
+## 15 Nov 07:00 UTC: first read of the new arms; seen1 dropped; laptop offline about 07:10-08:00
+
+18 min since the 06:42 reset: main lock3 +71.7 (487 requests) against ranker2 +48.2 (485), super1 +53.7, aff1 +49.6; new shoppers ranker8 +90.5, aff1 +72.9, seen1 +45.5; home ranker2 -2.5, aff1 -4.4. seen1 dropped; lock3 joins the new-shopper route. Small samples. The arms keep running on the VM while the laptop is offline (no retraining for about 50 min: models about 70 min old by 08:00, within the 60-min tie range).
