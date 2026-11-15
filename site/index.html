@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=12">
+<link rel="stylesheet" href="/static/style.css?v=13">
 </head>
 <body id="top">
 <div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div>
@@ -217,21 +217,21 @@
   <section class="results" aria-labelledby="h-results">
     <div class="head">
       <h2 id="h-results">What the saved rows tell us</h2>
-      <p>The rows above went in raw, with no schema. These results come out of them with plain SQL in RawTree, live.</p>
+      <p>Leaderboard copies, agent findings and agent traces have nothing in common but the table they live in. They went in raw, with no schema, and these results come out of them with plain SQL, live.</p>
     </div>
     <div class="res">
+      <article class="res-card">
+        <h3>Our rank, from copied leaderboards</h3>
+        <p class="res-sub">Every public refresh was saved as raw rows. Ranking the 42 teams inside each copy gives our place hour by hour, by conversion over the past hour. Lower is better.</p>
+        <div class="res-rank" id="res-rank" role="img" aria-label="Our hourly rank among 42 teams during practice"></div>
+        <p class="res-axis mono" id="res-rank-axis"></p>
+      </article>
       <article class="res-card">
         <h3>The fleet, from its own traces</h3>
         <p class="res-sub">Every tool call our agents made, loaded into RawTree as one row each: who called which tool, the token usage, whether it failed. A Langfuse-style view with no extra service.</p>
         <table class="res-t"><thead><tr><th></th><th class="num">tool calls</th><th class="num">agents</th><th class="num">queried RawTree</th><th class="num">failed</th><th class="num">output tokens</th></tr></thead><tbody id="res-traces"></tbody></table>
         <div class="res-bars" id="res-hours" role="img" aria-label="Agent tool calls per hour across the event"></div>
         <p class="res-axis mono" id="res-hours-axis"></p>
-      </article>
-      <article class="res-card">
-        <h3>Our rank, from copied leaderboards</h3>
-        <p class="res-sub">Every public refresh was saved as raw rows. Ranking the 42 teams inside each copy gives our place hour by hour, by conversion over the past hour. Lower is better.</p>
-        <div class="res-rank" id="res-rank" role="img" aria-label="Our hourly rank among 42 teams during practice"></div>
-        <p class="res-axis mono" id="res-rank-axis"></p>
       </article>
       <article class="res-card">
         <h3>What the agents concluded</h3>
@@ -277,6 +277,6 @@
 </main>
 
 <footer class="foot mono"><span>quick2query · one developer and a fleet of agents</span><span id="sources"></span></footer>
-<script src="/static/app.js?v=12"></script>
+<script src="/static/app.js?v=13"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=12">
+<link rel="stylesheet" href="/static/style.css?v=13">
 <style>
   .rt-back { font: 500 14px var(--mono); color: var(--ink-2); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-height: 44px; display: inline-flex; align-items: center; }
   .rt-back:hover { color: var(--ink); border-color: var(--ink-3); }
@@ -55,35 +55,28 @@
 
 <main>
   <section class="rt-intro" aria-labelledby="h-page">
-    <h1 id="h-page">What our agents keep in RawTree</h1>
+    <h1 id="h-page">Everything the system runs on, kept raw in RawTree</h1>
     <p class="rt-note" id="status">loading…</p>
     <div class="rt-sum">
-      <div><dd class="mono" id="sum-rows">–</dd><dt>raw rows in one table, no schema</dt></div>
-      <div><dd class="mono" id="sum-traces">–</dd><dt>agent tool calls traced in RawTree</dt></div>
-      <div><dd class="mono" id="sum-agents">–</dd><dt>agents seen in the traces</dt></div>
-      <div><dd class="mono" id="sum-rt">–</dd><dt>agent tool calls that queried RawTree</dt></div>
+      <div><dd class="mono" id="sum-rows">–</dd><dt>raw rows in one table of ours</dt></div>
+      <div><dd class="mono" id="sum-kinds">–</dd><dt>kinds of row, each with its own shape</dt></div>
+      <div><dd class="mono">0</dd><dt>schemas, migrations or pipelines written</dt></div>
+      <div><dd class="mono" id="sum-traces">–</dd><dt>of them agent traces, one per tool call</dt></div>
     </div>
     <ul class="rt-why">
-      <li><b>We built a fleet of agents, then watched it with RawTree.</b> Every tool call they made is a raw row, analysed with SQL like any other data.</li>
-      <li><b>The fleet remembers in RawTree.</b> Questions, claims and findings are rows any agent can read, so parallel agents never collide.</li>
-      <li><b>The system logs itself in RawTree.</b> Traffic splits, operator decisions, the single-writer lock, exploration and leaderboard history.</li>
+      <li><b>The agents think with it.</b> Questions, work claims and findings are rows any agent reads, so parallel agents never collide.</li>
+      <li><b>The live system runs on it.</b> Traffic splits, the single-writer lock and the overnight operator's decisions.</li>
+      <li><b>The models learn from it.</b> Exploration lists with their probabilities, and every leaderboard refresh to judge each idea.</li>
+      <li><b>We watch the fleet with it.</b> Every tool call an agent made, with tokens and failures, next to everything else.</li>
     </ul>
+    <p class="rt-small">Each kind arrived as JSON in whatever shape it had, nested lists and objects included, and new kinds were added during the event by just inserting them. All of it is read back with the same SQL.</p>
     <p class="rt-results"><a href="/#h-results">See what these rows tell us on the live page</a></p>
-    <p class="rt-small">The shop's data is only half of what lives in RawTree. Every agent and every service we built writes to one table of ours, <code>team_01.scratch</code>. Each kind of row has its own fields, and RawTree needs no schema for them: a new kind of row is just a new insert, queried with the same SQL.</p>
-    <p class="rt-small">Below is the newest real row of each kind, read live. Internal strategy names are replaced by the same public labels the shop sees, and the server's name is hidden.</p>
-  </section>
-
-  <section aria-labelledby="h-traces">
-    <div class="head">
-      <h2 id="h-traces">0. The fleet's own traces</h2>
-      <p>One row per tool call, loaded from the agents' session logs. Only the structure is kept: never a prompt, an output or a command.</p>
-    </div>
-    <div class="rt-rows" data-group="traces"></div>
+    <p class="rt-small">Below is the newest real row of each kind, read live. Internal strategy names are replaced by the public labels the shop sees, and the server's name is hidden.</p>
   </section>
 
   <section aria-labelledby="h-memory">
     <div class="head">
-      <h2 id="h-memory">1. The agents' shared memory</h2>
+      <h2 id="h-memory">1. What the agents think with</h2>
       <p>How parallel agents work together without talking to each other: questions, reservations and findings are rows that any agent can read.</p>
     </div>
     <div class="rt-rows" data-group="memory"></div>
@@ -91,7 +84,7 @@
 
   <section aria-labelledby="h-log">
     <div class="head">
-      <h2 id="h-log">2. The system's own log and control plane</h2>
+      <h2 id="h-log">2. What the live system runs on</h2>
       <p>The live service and the overnight operator record every decision they take, so a person or an agent can audit it later with one query.</p>
     </div>
     <div class="rt-rows" data-group="log"></div>
@@ -99,10 +92,17 @@
 
   <section aria-labelledby="h-evidence">
     <div class="head">
-      <h2 id="h-evidence">3. The evidence behind every decision</h2>
+      <h2 id="h-evidence">3. What the models learn from</h2>
       <p>The data the models learn from and the record of how each idea did, kept so that results can be replayed and checked.</p>
     </div>
     <div class="rt-rows" data-group="evidence"></div>
+  </section>
+  <section aria-labelledby="h-traces">
+    <div class="head">
+      <h2 id="h-traces">4. Watching the fleet</h2>
+      <p>The agents' own activity is one more kind of raw data: one row per tool call, loaded from their session logs. Only the structure is kept, never a prompt, an output or a command.</p>
+    </div>
+    <div class="rt-rows" data-group="traces"></div>
   </section>
 </main>
 
@@ -170,11 +170,8 @@ async function tick() {
     const tr = (d.analysis && d.analysis.traces) || [];
     const sum = (k) => tr.reduce((n, x) => n + Number(x[k] || 0), 0);
     document.getElementById("sum-rows").textContent = fmt(total);
-    if (tr.length) {
-      document.getElementById("sum-traces").textContent = fmt(sum("calls"));
-      document.getElementById("sum-agents").textContent = fmt(sum("agents"));
-      document.getElementById("sum-rt").textContent = fmt(sum("rawtree"));
-    }
+    if (tr.length) document.getElementById("sum-traces").textContent = fmt(sum("calls"));
+    document.getElementById("sum-kinds").textContent = fmt(KINDS.filter(([, k]) => d.counts[k]).length);
     document.getElementById("status").textContent = `live · ${fmt(total)} rows in team_01.scratch · read at ${d.now} UTC`;
   } catch (e) {
     document.getElementById("status").textContent = "could not reach the server, retrying";

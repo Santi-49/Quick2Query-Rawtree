@@ -23,7 +23,7 @@ SQL = {
 SELECT r.ts::String AS ts, r.request_id::String AS rid, r.is_new_user::Bool AS new_user,
        length(r.recent_views::Array(JSON)) AS views, s.mv AS mv, s.items AS items,
        f.n AS fb, f.clicked AS clicked, f.purchased AS purchased, f.latency AS latency, f.served_by AS served_by
-FROM (SELECT * FROM shop.requests WHERE ts::DateTime64(3) > now64(3) - INTERVAL 3 MINUTE ORDER BY ts::DateTime64(3) DESC LIMIT 60) r
+FROM (SELECT * FROM shop.requests WHERE ts::DateTime64(3) > now64(3) - INTERVAL 3 MINUTE ORDER BY ts::DateTime64(3) DESC LIMIT 240) r
 LEFT JOIN (SELECT request_id::String AS rid, any(model_version::String) AS mv, any(items::Array(String)) AS items
            FROM {{TEAM}}.submissions WHERE request_id::String IN {REQ} GROUP BY rid) s ON s.rid = r.request_id::String
 LEFT JOIN (SELECT request_id::String AS rid, count() AS n, any(clicked::String) AS clicked, any(purchased::String) AS purchased,
@@ -129,10 +129,22 @@ def route(r: dict) -> str:
     return "new" if r["new_user"] else "returning"
 
 
+sent_pending: dict[str, float] = {}   # request id -> when it was last sent still waiting
+
+
 def stream(rows: list[dict]) -> list[dict]:
-    """Newest first: at most 4 still waiting for feedback, then answered ones, 25 in all."""
+    """Newest first: at most 4 still waiting for feedback, then answered ones, 25 in all, plus any answered row that was
+    sent as waiting in the last 2 minutes: a page may show it, and it needs the outcome."""
+    now = time.time()
     pending = [r for r in rows if not r.get("fb")][:4]
-    rows = sorted(pending + [r for r in rows if r.get("fb")], key=lambda r: r["ts"], reverse=True)[:25]
+    for r in pending:
+        sent_pending[r["rid"]] = now
+    for rid in [k for k, t in sent_pending.items() if now - t > 120]:
+        del sent_pending[rid]
+    answered = [r for r in rows if r.get("fb")]
+    top = sorted(pending + answered, key=lambda r: r["ts"], reverse=True)[:25]
+    keep = {r["rid"] for r in top}
+    rows = top + [r for r in answered if r["rid"] in sent_pending and r["rid"] not in keep]
     out = []
     for r in rows:
         items = r.get("items") or []
