@@ -99,3 +99,7 @@ A fresh-eyes agent, given only the problem, found in live feedback that 45% of o
 ## 15 Nov 06:30 UTC: lock2 on half of the home page
 
 Home requests have no recent views, but 82% of those shoppers viewed products earlier today (shadow, 200 requests). lock2 treats today's last 5 organic views as the recent views and runs lock1. Label is its hash, md2ddd-h, so no router restart. Read at about 07:30 with lock1.
+
+## 15 Nov 06:28 UTC: lock3, a soft lock, as a third arm on main
+
+Case study of 546 purchases on view requests, last 3 h: 56% in the last view's category; about 117 (21%) cross-category, mostly Books & Media and Toys & Baby, half from slot 1, which lock1 would drop. lock3 multiplies in-category scores by 2 (shadow: 7.7 of 10 in category). Main split ranker2 / lock1 / lock3, label m461a2.
