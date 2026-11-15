@@ -44,14 +44,18 @@ const CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3
 const ROUTE = { home: "home page", new: "new shopper", returning: "returning" };
 
 // ---------- 1 the stream ----------
-// The list is ours, not the API's: rows are keyed by request id and keep their element for as long as they
-// are on screen. Each update admits a few new shoppers on top, moves the others down once (FLIP), drops the
-// oldest, and changes a row's outcome in place.
-const feed = [];                 // {r, el, sig}, newest first
-const passed = new Set();        // request ids we saw and did not admit
-let feedKey = "", paused = false, held = null;
+// The list is ours, not the API's: rows are keyed by request id and keep their element for as long as they are
+// on screen. A poll never reorders the list. It changes outcomes in place and puts new shoppers in a short
+// queue; a trickle takes one shopper from the queue at a time, at most one a second, and slides the list down
+// one row (FLIP, transforms only). When more than a few are waiting, the oldest waiting shoppers are skipped.
+const feed = [];                 // {r, el, sig, move}, newest first
+const queue = [];                // rows waiting to enter, oldest first
+const passed = new Set();        // request ids we saw: on screen, queued or skipped
+const latest = new Map();        // request id -> newest version of the row
+let feedKey = "", gap = 1250, lastIn = 0, trickleT = 0;
+const QUEUE = 4, MIN_GAP = 1000, MAX_GAP = 1500;
+const MOVE = { duration: 650, easing: "cubic-bezier(.45, .05, .25, 1)" };
 const maxRows = () => narrow() ? 7 : 16;
-const perUpdate = () => narrow() ? 2 : 4;
 const sig = (r) => `${r.label}|${r.items.length}|${r.feedback ? 1 : 0}|${r.items.findIndex((i) => i.clicked)}|${r.items.findIndex((i) => i.bought)}`;
 
 function chip(it) {
@@ -74,77 +78,96 @@ function flash(el) {
   void el.offsetWidth;
   el.classList.add("flash");
 }
+function rowOf(r) {
+  const el = document.createElement("div");
+  el.className = "row";
+  fill(el, r);
+  return { r, el, sig: sig(r), move: null };
+}
 
 function stream(rows) {
-  if (paused) { held = rows; return; }
   const box = $("rows"), max = maxRows();
+  while (feed.length > max) feed.pop().el.remove();          // the layout changed to a phone
   if (!rows.length && !feed.length) { box.innerHTML = '<p class="empty">Waiting for the first shopper.</p>'; return; }
   const key = rows.map((r) => r.rid + sig(r)).join();
-  if (key === feedKey && feed.length <= max) return;      // the server cache did not change
-  const fresh = key !== feedKey, firstFill = !feed.length;
+  if (key === feedKey) return;                               // the server cache did not change
   feedKey = key;
-  if (firstFill) box.innerHTML = "";
-  const animate = !still && !firstFill && !document.hidden;
-  const before = new Map();
-  if (animate) feed.forEach((f) => before.set(f, f.el.getBoundingClientRect().top));
+  latest.clear();
+  rows.forEach((r) => latest.set(r.rid, r));
 
-  // 1. rows on screen: update in place, or let go of one that never got an answer
-  const byId = new Map(rows.map((r) => [r.rid, r]));
-  const changed = [], leaving = [];
-  for (let i = feed.length - 1; i >= 0; i--) {
-    const f = feed[i], r = byId.get(f.r.rid);
-    if (r) {
-      const s = sig(r);
-      if (s !== f.sig) { f.r = r; f.sig = s; fill(f.el, r); changed.push(f.el); }
-    } else if (!f.r.feedback) { leaving.push(f); feed.splice(i, 1); }
-  }
-  // 2. admit a few new shoppers, newest first; the rest are passed over for good
-  const entering = [];
-  if (fresh) {
-    const onScreen = new Set(feed.map((f) => f.r.rid));
-    const unseen = rows.filter((r) => !onScreen.has(r.rid) && !passed.has(r.rid));
-    unseen.slice(0, firstFill ? max : perUpdate()).reverse().forEach((r) => {
-      const el = document.createElement("div");
-      el.className = "row";
-      fill(el, r);
-      const f = { r, el, sig: sig(r) };
-      feed.unshift(f);
-      box.prepend(el);
-      entering.push(f);
-    });
+  if (!feed.length) {                                        // first fill: no motion, newest on top
+    box.innerHTML = "";
+    rows.slice(0, max).forEach((r) => { const f = rowOf(r); feed.push(f); box.append(f.el); });
     rows.forEach((r) => passed.add(r.rid));
-    for (const id of passed) if (!byId.has(id)) passed.delete(id);
+    return;
   }
-  // 3. keep a fixed number of rows
-  while (feed.length > max) leaving.push(feed.pop());
-
-  if (!animate) { leaving.forEach((f) => f.el.remove()); return; }
-  // FLIP: take the leaving rows out of the flow where they were, then let every other row glide to its new place
-  const boxTop = box.getBoundingClientRect().top, pitch = feed[0] ? feed[0].el.offsetHeight : 40;
-  const opts = { duration: 420, easing: "cubic-bezier(.22,1,.36,1)" };
-  leaving.forEach((f) => {
-    const top = before.get(f) - boxTop;
-    Object.assign(f.el.style, { position: "absolute", left: 0, right: 0, top: top + "px" });
-    f.el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, offset: .45 }, { opacity: 0, transform: `translateY(${entering.length * pitch}px)` }], opts)
-      .finished.then(() => f.el.remove(), () => f.el.remove());
-  });
+  // 1. rows on screen: change the outcome in place
   feed.forEach((f) => {
-    if (!before.has(f)) return;
-    const dy = before.get(f) - f.el.getBoundingClientRect().top;
-    if (dy) f.el.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], opts);
+    const r = latest.get(f.r.rid);
+    if (!r) return;
+    const s = sig(r);
+    if (s !== f.sig) { f.r = r; f.sig = s; fill(f.el, r); flash(f.el); }
   });
-  entering.forEach((f) => f.el.animate([{ opacity: 0, transform: "translateY(-10px)" }, { opacity: 1, transform: "none" }], { ...opts, delay: 140, fill: "backwards" }));
-  changed.forEach(flash);
+  // 2. new shoppers, not older than the top row, wait in the queue oldest first; beyond a few, the oldest are skipped
+  const top = feed[0].r.ts;
+  rows.filter((r) => !passed.has(r.rid) && r.ts >= top).forEach((r) => queue.push(r));
+  rows.forEach((r) => passed.add(r.rid));
+  queue.sort((a, b) => a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0);
+  queue.splice(0, Math.max(0, queue.length - QUEUE));
+  if (passed.size > 600) { passed.clear(); [...latest.keys(), ...feed.map((f) => f.r.rid), ...queue.map((r) => r.rid)].forEach((id) => passed.add(id)); }
+  // spread the queue over about one data refresh (5 s), never faster than one row a second
+  gap = Math.min(MAX_GAP, Math.max(MIN_GAP, 4500 / Math.max(1, queue.length)));
+  trickle();
 }
-// reading a row should not be a race: hold updates while the mouse is on the list
-const feedBox = document.querySelector(".feed");
-feedBox.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") { paused = true; $("paused").hidden = false; } });
-feedBox.addEventListener("pointerleave", () => {
-  if (!paused) return;
-  paused = false;
-  $("paused").hidden = true;
-  if (held) { stream(held); held = null; }
-});
+
+function trickle() {
+  if (trickleT || !queue.length) return;
+  trickleT = setTimeout(() => {
+    trickleT = 0;
+    enter();
+    trickle();
+  }, Math.max(0, lastIn + gap - performance.now()));
+}
+
+function enter() {
+  const q = queue.shift();
+  if (!q) return;
+  lastIn = performance.now();
+  const box = $("rows"), max = maxRows(), r = latest.get(q.rid) || q;
+  const animate = !still && !document.hidden;
+  const before = new Map();
+  if (animate) feed.forEach((f) => before.set(f, f.el.getBoundingClientRect().top));   // where they are, motion in flight included
+  const boxTop = animate ? box.getBoundingClientRect().top : 0;
+
+  const f = rowOf(r);
+  feed.unshift(f);
+  box.prepend(f.el);
+  const leaving = [];
+  while (feed.length > max) leaving.push(feed.pop());
+  if (!animate) { leaving.forEach((l) => l.el.remove()); return; }
+
+  // the bottom row leaves the flow where it is, then slides out under the bottom edge while it fades
+  leaving.forEach((l) => {
+    if (l.move) l.move.cancel();
+    Object.assign(l.el.style, { position: "absolute", left: 0, right: 0, top: (before.get(l) - boxTop) + "px" });
+  });
+  feed.forEach((g) => { if (g.move) { g.move.cancel(); g.move = null; } });
+  const pitch = f.el.offsetHeight;                           // the one layout read after all the writes
+  const after = feed.map((g) => g.el.getBoundingClientRect().top);
+  feed.forEach((g, i) => {
+    if (!before.has(g)) return;
+    const dy = before.get(g) - after[i];
+    if (Math.abs(dy) > .5) g.move = g.el.animate([{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }], MOVE);
+  });
+  // the new row comes down from under the column header while the rows below make room for it
+  f.move = f.el.animate([{ transform: `translateY(${-pitch}px)`, opacity: 0 }, { opacity: .4, offset: .5 }, { transform: "translateY(0)", opacity: 1 }], MOVE);
+  leaving.forEach((l) => {
+    l.el.animate([{ transform: "translateY(0)", opacity: 1 }, { transform: `translateY(${pitch}px)`, opacity: 0 }], MOVE)
+      .finished.then(() => l.el.remove(), () => l.el.remove());
+  });
+}
+// a hidden tab gets no motion; when it is shown again, drop what piled up and carry on
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { queue.splice(0, Math.max(0, queue.length - 1)); trickle(); } });
 $("legend").innerHTML = KNOWN.map((c) => `<li><i style="background:${colour(c)}"></i>${esc(c)}</li>`).join("") + '<li><i class="chip unknown"></i>new, not in the catalogue yet</li>';
 
 // ---------- 2 the feedback ----------
@@ -212,7 +235,7 @@ function slots(by) {
   if (total) $("slot-note").innerHTML = `<b>What to notice:</b> slot 1 gets ${fmt(100 * vals[0] / total)}% of the clicks and slot 10 gets ${fmt(100 * vals[9] / total)}%. Shoppers look at the first slots most, so the order of the 10 products matters as much as the choice.`;
 }
 
-// ---------- 3 the fleet ----------
+// ---------- 4 the fleet ----------
 // A node is [x, y, w, h]. An edge end is a side letter and how far along that side, e.g. "r.2".
 const WIDE = {
   box: [1290, 590],
@@ -244,14 +267,42 @@ const TALL = {
 };
 const NODES = {
   dev: { t: "Developer", d: "One person. Sets the goal, reviews, decides what ships." },
-  main: { t: "Orchestrator agent", d: "Decides and plans. Hands work to the other agents.", h: "here: the main Claude Code session" },
-  builders: { t: "Builder agents", d: "Write and test code.", h: "here: strategies, model trainers, SQL" },
-  analysts: { t: "Analyst agents", d: "Get only the data, not our beliefs.", h: "here: subagent 1, \"fresh eyes\"" },
-  workers: { t: "Insight workers", d: "Run in parallel. Ask a question, query RawTree through MCP, record a verdict.", h: "here: workers w1, w2 and w3" },
+  main: { t: "Orchestrator agent", d: "Decides and plans. Hands work to the other agents." },
+  builders: { t: "Builder agents", d: "Write and test code." },
+  analysts: { t: "Analyst agents", d: "Get only the data, not our beliefs." },
+  workers: { t: "Insight workers", d: "Run in parallel. Ask a question, query RawTree through MCP, record a verdict." },
   rawtree: { t: "RawTree", d: "Shared memory. Every event, answer, question, finding and verdict is a row that any agent can query with SQL or through MCP.", k: "mem" },
-  source: { t: "Data stream", d: "Events arrive all the time and their pattern drifts.", h: "here: a simulated shop, 3 shoppers a second" },
-  service: { t: "Live service", d: "Answers each event. Strategies share the traffic.", h: "here: a router on a small VM" },
-  operator: { t: "Operator", d: "An unattended loop that moves live traffic to winners.", h: "here: a check every 15 min, ran overnight" },
+  source: { t: "Data stream", d: "Events arrive all the time and their pattern drifts." },
+  service: { t: "Live service", d: "Answers each event. Strategies share the traffic." },
+  operator: { t: "Operator", d: "An unattended loop that moves live traffic to winners." },
+};
+// Two views of the same structure: only the "here" lines, the edge words and the numbers change.
+const VIEWS = {
+  shop: {
+    h: {
+      main: "here: the main Claude Code session",
+      builders: "here: strategies, model trainers, SQL",
+      analysts: "here: subagent 1, \"fresh eyes\"",
+      workers: "here: workers w1, w2 and w3",
+      source: "here: a simulated shop, 3 shoppers a second",
+      service: "here: a router on a small VM",
+      operator: "here: a check every 15 min, ran overnight",
+    },
+    words: {},
+  },
+  fleet: {
+    h: {
+      main: "example: one session that owns the fleet brief",
+      builders: "example: alert thresholds, anomaly models, SQL",
+      analysts: "example: a fresh look at raw readings",
+      workers: "example: \"which sensors drifted since the last firmware?\"",
+      source: "example: a fleet of sensors streaming readings",
+      service: "example: thresholds and anomaly models served to the devices",
+      operator: "example: favours rules technicians confirm",
+    },
+    words: { events: "readings", "10 products": "alerts", feedback: "incidents", "moves traffic": "moves devices" },
+    values: { source: "example, not running" },
+  },
 };
 function anchor([x, y, w, h], spec) {
   const side = spec[0], f = parseFloat(spec.slice(1)) || .5;
@@ -269,48 +320,46 @@ function wrap(parent, s, cls, x, y, width, px, lh) {
   out.forEach((l, i) => (svg("tspan", { x, dy: i ? lh : 0 }, t).textContent = l));
   return y + out.length * lh;
 }
-let layoutKey = "";
-function diagram(values) {
-  const tall = narrow(), L = tall ? TALL : WIDE, el = $("diagram");
-  const key = tall ? "tall" : "wide";
-  if (key !== layoutKey) {
-    layoutKey = key;
-    el.innerHTML = "";
-    el.setAttribute("viewBox", `0 0 ${L.box[0]} ${L.box[1]}`);
-    const defs = svg("defs", {}, el);
-    const mk = svg("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: "auto-start-reverse" }, defs);
-    svg("path", { d: "M0,1 L10,5 L0,9 z", class: "arrow" }, mk);
-    const edges = svg("g", {}, el), labels = [];
-    L.edges.forEach(([a, as, b, bs, label, loop, beside, both], i) => {
-      const p = anchor(L.nodes[a], as), q = anchor(L.nodes[b], bs);
-      const straight = (p[2] === 0 && q[2] === 0 && p[0] === q[0]) || (p[3] === 0 && q[3] === 0 && p[1] === q[1] && p[2] !== q[2]);
-      const k = straight ? 0 : tall ? 38 : Math.min(60, Math.hypot(q[0] - p[0], q[1] - p[1]) / 2);
-      const d = `M${p[0]},${p[1]} C${p[0] + p[2] * k},${p[1] + p[3] * k} ${q[0] + q[2] * k},${q[1] + q[3] * k} ${q[0]},${q[1]}`;
-      const path = svg("path", { d, class: "edge" + (loop ? " loop" : ""), id: "e" + i, "marker-end": "url(#arrow)" }, edges);
-      if (both) path.setAttribute("marker-start", "url(#arrow)");
-      if (label) {
-        const m = path.getPointAtLength(path.getTotalLength() / 2);
-        labels.push([beside ? { x: m.x + 10, y: m.y + 4, class: "elbl" } : { x: m.x, y: m.y - 8, "text-anchor": "middle", class: "elbl" }, label]);
-      }
-      if (!still && !tall) {   // one slow dot per edge shows the direction of flow
-        const c = svg("circle", { r: 3, class: "flow" }, edges);
-        const am = svg("animateMotion", { dur: "4s", repeatCount: "indefinite", begin: (-i * .37) + "s" }, c);
-        svg("mpath", { href: "#e" + i }, am);
-      }
-    });
-    for (const id in NODES) {
-      const [x, y, w, h] = L.nodes[id], n = NODES[id], pad = 16;
-      const g = svg("g", { class: "node " + (n.k || "") }, el);
-      svg("rect", { x, y, width: w, height: h, rx: 12 }, g);
-      svg("text", { x: x + pad, y: y + (n.k ? 36 : 28), class: "t" }, g).textContent = n.t;
-      let yy = wrap(g, n.d, "d", x + pad, y + (n.k ? 62 : 49), w - 2 * pad, 13.5, 18);
-      if (n.h) wrap(g, n.h, "h", x + pad, yy + 3, w - 2 * pad, 12.5, 16);
-      svg("text", { x: x + pad, y: y + h - 14, class: "v", id: "v-" + id, "data-x": x + pad }, g);
+// Draw boxes and arrows into an <svg>. Edge: [from, side, to, side, label, loop, labelBeside, bothWays].
+function drawGraph(el, L, nodes, prefix, words = {}, flow = true) {
+  const tall = L.box[0] < L.box[1];
+  el.innerHTML = "";
+  el.setAttribute("viewBox", `0 0 ${L.box[0]} ${L.box[1]}`);
+  const defs = svg("defs", {}, el);
+  const mk = svg("marker", { id: prefix + "-arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: "auto-start-reverse" }, defs);
+  svg("path", { d: "M0,1 L10,5 L0,9 z", class: "arrow" }, mk);
+  const edges = svg("g", {}, el), labels = [];
+  L.edges.forEach(([a, as, b, bs, label, loop, beside, both], i) => {
+    const p = anchor(L.nodes[a], as), q = anchor(L.nodes[b], bs);
+    const straight = (p[2] === 0 && q[2] === 0 && p[0] === q[0]) || (p[3] === 0 && q[3] === 0 && p[1] === q[1] && p[2] !== q[2]);
+    const k = straight ? 0 : tall ? 38 : Math.min(60, Math.hypot(q[0] - p[0], q[1] - p[1]) / 2);
+    const d = `M${p[0]},${p[1]} C${p[0] + p[2] * k},${p[1] + p[3] * k} ${q[0] + q[2] * k},${q[1] + q[3] * k} ${q[0]},${q[1]}`;
+    const path = svg("path", { d, class: "edge" + (loop ? " loop" : ""), id: `${prefix}-e${i}`, "marker-end": `url(#${prefix}-arrow)` }, edges);
+    if (both) path.setAttribute("marker-start", `url(#${prefix}-arrow)`);
+    if (label) {
+      const m = path.getPointAtLength(path.getTotalLength() / 2);
+      labels.push([beside ? { x: m.x + 10, y: m.y + 4, class: "elbl" } : { x: m.x, y: m.y - 8, "text-anchor": "middle", class: "elbl" }, words[label] || label]);
     }
-    labels.forEach(([attrs, label]) => (svg("text", attrs, el).textContent = label));
+    if (flow && !still && !tall) {   // one slow dot per edge shows the direction of flow
+      const c = svg("circle", { r: 3, class: "flow" }, edges);
+      const am = svg("animateMotion", { dur: "4s", repeatCount: "indefinite", begin: (-i * .37) + "s" }, c);
+      svg("mpath", { href: `#${prefix}-e${i}` }, am);
+    }
+  });
+  for (const id in nodes) {
+    const [x, y, w, h] = L.nodes[id], n = nodes[id], pad = 16;
+    const g = svg("g", { class: "node " + (n.k || "") }, el);
+    svg("rect", { x, y, width: w, height: h, rx: 12 }, g);
+    svg("text", { x: x + pad, y: y + (n.k ? 36 : 28), class: "t" }, g).textContent = n.t;
+    const yy = wrap(g, n.d, "d", x + pad, y + (n.k ? 62 : 49), w - 2 * pad, 13.5, 18);
+    if (n.h) wrap(g, n.h, "h", x + pad, yy + 3, w - 2 * pad, 12.5, 16);
+    svg("text", { x: x + pad, y: y + h - 14, class: "v", id: `${prefix}-v-${id}`, "data-x": x + pad }, g);
   }
+  labels.forEach(([attrs, label]) => (svg("text", attrs, el).textContent = label));
+}
+function setValues(prefix, values) {
   for (const id in values) {
-    const t = $("v-" + id);
+    const t = $(`${prefix}-v-${id}`);
     if (!t || t.dataset.s === values[id]) continue;
     t.dataset.s = values[id];
     const lines = (values[id] || "").split("\n");
@@ -318,33 +367,110 @@ function diagram(values) {
     lines.forEach((l, i) => (svg("tspan", { x: t.dataset.x, dy: i ? 17 : -(lines.length - 1) * 17 }, t).textContent = l));
   }
 }
+let layoutKey = "";
+function diagram(values) {
+  const tall = narrow(), L = tall ? TALL : WIDE;
+  const key = tall ? "tall" : "wide";
+  if (key !== layoutKey) {
+    layoutKey = key;
+    for (const v in VIEWS) {
+      const nodes = {};
+      for (const id in NODES) nodes[id] = { ...NODES[id], h: VIEWS[v].h[id] };
+      drawGraph($("diagram-" + v), L, nodes, v, VIEWS[v].words);
+      if (VIEWS[v].values) setValues(v, VIEWS[v].values);
+    }
+  }
+  setValues("shop", values);   // live numbers only in the view of what is running
+}
+const VIEW_NOTE = {
+  shop: "Live: the blue numbers are read from RawTree every 5 seconds.",
+  fleet: "Example only, nothing here is running. The roles, RawTree and the loop are the same; the stream is a fleet of devices.",
+};
+document.querySelector(".viewpick").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-view]");
+  if (!b) return;
+  const v = b.dataset.view;
+  document.querySelectorAll(".viewpick button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+  for (const k in VIEWS) $("diagram-" + k).classList.toggle("on", k === v);
+  $("agents-sec").dataset.view = v;
+  text("viewnote", VIEW_NOTE[v]);
+});
 
-// ---------- 5 what was tested ----------
+// ---------- 3 the final strategy: one left-to-right pass, and the retraining loop under it ----------
+const MODEL_NODES = {
+  shopper: { t: "Shopper arrives", d: "Page, device, new or returning, and what they viewed in the last minutes." },
+  cands: { t: "Candidates", d: "Recently viewed products, best sellers in their subcategories and categories, overall best sellers. Up to 30 from each." },
+  score: { t: "Model scores", d: "click chance × purchase chance × trend boost × price-cut boost", h: "about 34 inputs per candidate" },
+  top: { t: "Top 10 shown", d: "Highest score first. Products the shopper already bought are never shown." },
+  fb: { t: "Feedback in RawTree", d: "Every product shown, and whether it was clicked or bought." },
+  retrain: { t: "Retrain every 20 min", d: "On our own feedback only, then pushed to the server.", k: "mem" },
+};
+const MODEL_WIDE = {
+  box: [1290, 316],
+  nodes: {
+    shopper: [12, 12, 222, 156], cands: [276, 12, 222, 156], score: [540, 12, 222, 156], top: [804, 12, 222, 156], fb: [1056, 12, 222, 156],
+    retrain: [700, 210, 290, 100],
+  },
+  edges: [
+    ["shopper", "r.5", "cands", "l.5"], ["cands", "r.5", "score", "l.5"], ["score", "r.5", "top", "l.5"], ["top", "r.5", "fb", "l.5"],
+    ["fb", "b.5", "retrain", "r.5", "", 1], ["retrain", "l.5", "score", "b.5", "new model", 1],
+  ],
+};
+const MODEL_TALL = {
+  box: [380, 1004],
+  nodes: {
+    shopper: [30, 6, 320, 118], cands: [30, 164, 320, 136], score: [30, 340, 320, 136], top: [30, 516, 320, 118], fb: [30, 674, 320, 118],
+    retrain: [30, 846, 320, 126],
+  },
+  edges: [
+    ["shopper", "b.5", "cands", "t.5"], ["cands", "b.5", "score", "t.5"], ["score", "b.5", "top", "t.5"], ["top", "b.5", "fb", "t.5"],
+    ["fb", "b.5", "retrain", "t.5", "", 1], ["retrain", "r.5", "score", "r.5", "", 1],
+  ],
+};
+let modelKey = "";
+function model() {
+  const key = narrow() ? "tall" : "wide";
+  if (key === modelKey) return;
+  modelKey = key;
+  drawGraph($("model"), key === "tall" ? MODEL_TALL : MODEL_WIDE, MODEL_NODES, "model");
+}
+// ---------- 6 what was tested ----------
 const FIGURES = [
-  ["tool_calls", "agent tool calls", "every file read, query and test an agent ran"],
-  ["sessions", "orchestrator sessions", "the developer talks to one agent at a time"],
-  ["subagents", "subagents started", "builders, analysts and insight workers"],
-  ["hypothesis_files", "hypotheses written down", "each with a claim, a test and a verdict"],
-  ["sql_files", "SQL files run in RawTree", "features, reports and hypothesis tests"],
-  ["strategy_files", "strategies built", "one file each, every one able to take live traffic"],
-  ["arms", "strategies on live traffic", "sharing the shoppers in the last 15 minutes"],
-  ["insights", "insights in RawTree", "question, finding and verdict, stored as rows"],
-  ["mcp", "RawTree MCP calls", "made by the insight workers to answer their questions"],
-  ["journal_entries", "journal entries", "one dated line for every decision and promotion"],
+  ["People and agents", [
+    ["developers", "developer", "sets the goal and decides what ships"],
+    ["sessions", "orchestrator sessions", "the developer talks to one agent at a time"],
+    ["subagents", "subagents started", "builders, analysts and insight workers"],
+    ["tool_calls", "agent tool calls", "every file read, query and test an agent ran"],
+  ]],
+  ["Ideas tested", [
+    ["hypothesis_files", "hypotheses written down", "each with a claim, a test and a verdict"],
+    ["strategy_files", "strategies built", "one file each, every one able to take live traffic"],
+    ["arms", "strategies on live traffic", "sharing the shoppers in the last 15 minutes"],
+    ["journal_entries", "journal entries", "one dated line per decision and promotion"],
+  ]],
+  ["Memory in RawTree", [
+    ["sql_files", "SQL files run in RawTree", "features, reports and hypothesis tests"],
+    ["insights", "insights in RawTree", "question, finding and verdict, stored as rows"],
+    ["mcp", "RawTree MCP calls", "made by the insight workers"],
+    ["questions", "questions open", "written by agents, waiting for a worker"],
+  ]],
 ];
 function figures(v) {
   const box = $("figures");
-  const want = FIGURES.filter(([k]) => v[k] != null && v[k] !== "");
-  const keys = want.map((i) => i[0]).join();
+  const has = ([k]) => v[k] != null && v[k] !== "";
+  const groups = FIGURES.map(([name, figs]) => [name, figs.filter(has)]).filter(([, figs]) => figs.length);
+  const keys = groups.map(([, figs]) => figs.map((i) => i[0]).join()).join("|");
   if (box.dataset.keys !== keys) {
     box.dataset.keys = keys;
-    box.innerHTML = want.map(([k, label, note]) => `<div class="fig"><dd id="f-${k}">–</dd><dt><b>${label}</b>${note}</dt></div>`).join("");
-    want.forEach(([k]) => delete shown["f-" + k]);
+    box.innerHTML = groups.map(([name, figs]) => `<div class="grp"><h3 class="mono">${name}</h3><dl class="tiles">` +
+      figs.map(([k, label, note]) => `<div class="fig"><dt><b>${label}</b><span>${note}</span></dt><dd class="mono" id="f-${k}">–</dd></div>`).join("") +
+      "</dl></div>").join("");
+    groups.forEach(([, figs]) => figs.forEach(([k]) => delete shown["f-" + k]));
   }
-  want.forEach(([k]) => count("f-" + k, Number(v[k])));
+  groups.forEach(([, figs]) => figs.forEach(([k]) => count("f-" + k, Number(v[k]))));
 }
 
-// ---------- 6 insights ----------
+// ---------- 7 insights ----------
 // Findings are written in markdown; show them as plain text: no emphasis marks, headings or table rules.
 const plain = (s) => s.replace(/\*\*|`|^#+\s*/gm, "").replace(/\|?(\s*:?-{3,}:?\s*\|)+\s*:?-{0,}:?/g, "").replace(/\s*\|\s*\|\s*/g, " | ").replace(/\s+/g, " ").trim();
 const cardEls = new Map(), openCards = new Set();
@@ -410,6 +536,7 @@ function render(d) {
   stream(d.stream);
   conversion(d.minutes);
   slots(d.slots);
+  model();
   const insights = s.insight_rows_backfill != null ? (s.insight_rows_live || 0) + s.insight_rows_backfill : (s.insight_rows_live ?? d.insights.length);
   const arms = d.arms.length;
   diagram({
@@ -429,7 +556,7 @@ ${arms} strategies live`,
   text("l-str", `${fmt(s.strategy_files)} strategies built`);
   text("l-arms", `${arms} on live traffic now`);
   text("l-ins", `${fmt(insights)} verdicts recorded`);
-  figures({ ...s, arms, insights, mcp: s.mcp_calls_total });
+  figures({ ...s, arms, insights, mcp: s.mcp_calls_total, questions: d.questions_open });
   text("tested-at", s.generated_at ? `Agent-log counts as of ${s.generated_at.slice(0, 16).replace("T", " ")} UTC.` : "");
   cards(d.insights);
   text("ins-cap", `${fmt(insights)} recorded, ${fmt(d.questions_open)} questions open.`);

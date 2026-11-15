@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=3">
+<link rel="stylesheet" href="/static/style.css?v=4">
 </head>
 <body id="top">
 <div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div>
@@ -41,22 +41,21 @@
 
   <section class="stream" id="stream" aria-labelledby="h-stream">
     <div class="head">
-      <h2 id="h-stream"><span class="num mono">1</span>The live stream</h2>
-      <p>Each row is one shopper from the last seconds, newest on top. The shop sends about three a second; the list takes a few from every update so that each row can be followed.</p>
+      <h2 id="h-stream">The live stream</h2>
+      <p>Each row is one shopper from the last seconds, newest on top. The shop sends about three a second; the list lets in one at a time, about one a second, so that each row can be followed.</p>
     </div>
     <p class="howto"><b>How to read a row:</b> when the shopper arrived, who they are, which of our strategies answered, the 10 products we showed (slot 1 on the left, one colour per category), then what the shopper did.
       <span class="keys"><span class="key"><i class="chip clicked k-click"></i>clicked</span><span class="key"><i class="chip bought"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i>bought</span><span class="key"><i class="chip wait"></i>not answered yet</span></span></p>
     <div class="feed">
       <div class="row colhead" aria-hidden="true"><span>time, UTC</span><span class="rid">request</span><span>shopper</span><span>strategy</span><span class="chips">10 products shown, slot 1 to 10</span><span>what the shopper did</span><span class="lat">answered in</span></div>
       <div class="rows" id="rows" aria-live="off"></div>
-      <span class="paused mono" id="paused" hidden>paused while the pointer is on the list</span>
     </div>
     <ul class="legend mono" id="legend" aria-label="Category colours"></ul>
   </section>
 
   <section class="feedback" aria-labelledby="h-feedback">
     <div class="head">
-      <h2 id="h-feedback"><span class="num mono">2</span>Is it working?</h2>
+      <h2 id="h-feedback">Is it working?</h2>
       <p>A few seconds after each answer the shop reports what the shopper did. That feedback is the only signal we get, and it is all in RawTree.</p>
     </div>
     <figure class="panel conv">
@@ -71,17 +70,45 @@
     </figure>
   </section>
 
-  <section class="agents" aria-labelledby="h-agents">
+  <section class="model" aria-labelledby="h-model">
     <div class="head">
-      <h2 id="h-agents"><span class="num mono">3</span>How it is built: a fleet of agents around one shared memory</h2>
-      <p>One person decides. Agents build, check and query, and each one writes what it learns into RawTree, where the others read it. The bold names are general roles. The line starting with "here" says what filled the role in this challenge. The numbers are live.</p>
+      <h2 id="h-model">How the final strategy works</h2>
     </div>
-    <div class="panel diagram"><svg id="diagram" role="img" aria-label="A developer directs an orchestrator agent. It hands work to builder agents, analyst agents and insight workers. All of them read and write RawTree. A live service reads RawTree to answer the data stream, and an operator loop moves live traffic to the strategies that win."></svg></div>
+    <div class="modeltext">
+      <p>Our final strategy, <b class="mono">shale</b>, first gathers candidates for each shopper: the products they viewed recently, the best sellers in those products' subcategories and categories, and the overall best sellers, up to 30 from each source. Each candidate gets a score: the chance the shopper clicks it, from a gradient-boosted tree model (LightGBM), times the chance that the click becomes a purchase, from a second model, times small boosts for products that are trending or have a price cut. The top 10 are shown, and a product the shopper already bought is never shown.</p>
+      <p>Both models are trained only on our own feedback, every product we showed and whether it was clicked or bought, and retrained every 20 minutes, so they follow the shop as products, prices and trends change. A small share of traffic used to go to random exploration so the model also learned about products it would not show, and new shoppers get a variant, <b class="mono">shaleE-n</b>, without the noisiest inputs.</p>
+    </div>
+    <div class="panel diagram"><svg id="model" role="img" aria-label="A shopper arrives. Candidates are gathered. The model scores each one as click chance times purchase chance times a trend boost times a price-cut boost. The top 10 are shown. Clicks and purchases go to RawTree as feedback, the models are retrained on it every 20 minutes, and the new model goes back to scoring."></svg></div>
+    <dl class="inputs">
+      <div><dt>The product</dt><dd>popularity, price, trend</dd></div>
+      <div><dt>The session</dt><dd>what the shopper viewed in the last minutes, which category and which words in product descriptions they keep looking at</dd></div>
+      <div><dt>The shopper's history</dt><dd>the categories and brands they view, their carts</dd></div>
+      <div><dt>The context</dt><dd>page, device, new or returning</dd></div>
+    </dl>
+    <p class="result">About 34 inputs per candidate, in the four groups above. <b>Result:</b> within hours of going live it went from 14th to a best of 8th of 42 teams.</p>
+  </section>
+
+  <section class="agents" id="agents-sec" data-view="shop" aria-labelledby="h-agents">
+    <div class="head">
+      <h2 id="h-agents">How it is built: a fleet of agents around one shared memory</h2>
+      <p>One person decides. Agents build, check and query, and each one writes what it learns into RawTree, where the others read it. The bold names are general roles; the line under each says what filled the role. Switch the view to see the same fleet on a different stream.</p>
+    </div>
+    <div class="viewbar">
+      <div class="viewpick" role="group" aria-label="Which stream the diagram shows">
+        <button type="button" data-view="shop" aria-pressed="true">What we built: a live shop</button>
+        <button type="button" data-view="fleet" aria-pressed="false">The same fleet: device telemetry</button>
+      </div>
+      <p class="viewnote mono" id="viewnote" aria-live="polite">Live: the blue numbers are read from RawTree every 5 seconds.</p>
+    </div>
+    <div class="panel diagram"><div class="views">
+      <svg id="diagram-shop" class="on" role="img" aria-label="What we built. A developer directs an orchestrator agent. It hands work to builder agents, analyst agents and insight workers. All of them read and write RawTree. A live service reads RawTree to answer the shop's shoppers, and an operator loop moves live traffic to the strategies that win."></svg>
+      <svg id="diagram-fleet" role="img" aria-label="Example, not running. The same roles on device telemetry. A fleet of sensors streams readings into RawTree. Builder agents write alert thresholds and anomaly models, insight workers ask questions such as which sensors drifted since the last firmware, and the operator favours the rules that technicians confirm."></svg>
+    </div></div>
   </section>
 
   <section class="loop" aria-labelledby="h-loop">
     <div class="head">
-      <h2 id="h-loop"><span class="num mono">4</span>The loop every idea goes through</h2>
+      <h2 id="h-loop">The loop every idea goes through</h2>
       <p>No idea reaches all shoppers on an offline result. It gets a share of live traffic first, and the feedback decides.</p>
     </div>
     <ol class="steps">
@@ -96,15 +123,15 @@
 
   <section class="tested" aria-labelledby="h-tested">
     <div class="head">
-      <h2 id="h-tested"><span class="num mono">5</span>What one developer tested</h2>
+      <h2 id="h-tested">What one developer tested</h2>
       <p>Counted from the repository, the agent logs and RawTree. <span class="mono" id="tested-at"></span></p>
     </div>
-    <dl class="ledger" id="figures"></dl>
+    <div class="ledger" id="figures"></div>
   </section>
 
   <section class="insights" aria-labelledby="h-insights">
     <div class="head">
-      <h2 id="h-insights"><span class="num mono">6</span>The insight loop, live</h2>
+      <h2 id="h-insights">The insight loop, live</h2>
       <p>Insight workers run in parallel. Each takes an open question, queries RawTree through its MCP server and writes the finding and a verdict back as a row. These are the latest rows. <span class="mono" id="ins-cap"></span></p>
     </div>
     <div class="inslist" id="cards"></div>
@@ -112,7 +139,7 @@
 
   <section class="closing" aria-labelledby="h-closing">
     <div class="head">
-      <h2 id="h-closing"><span class="num mono">7</span>The same fleet works on any stream that changes</h2>
+      <h2 id="h-closing">The same fleet works on any stream that changes</h2>
       <p>Nothing in the fleet is about shopping. On device telemetry, logs or prices, the roles, the shared memory and the loop stay the same. Only the SQL and the strategies change.</p>
     </div>
     <div class="tablewrap">
@@ -130,6 +157,6 @@
 </main>
 
 <footer class="foot mono"><span>quick2query · one developer and a fleet of agents</span><span id="sources"></span></footer>
-<script src="/static/app.js?v=3"></script>
+<script src="/static/app.js?v=4"></script>
 </body>
 </html>
