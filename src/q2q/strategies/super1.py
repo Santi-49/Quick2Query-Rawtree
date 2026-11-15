@@ -58,11 +58,16 @@ class Super1(Strategy):
         base = ranker2.STRATEGY
         if base.models is None:   # ranker2 loads its models on its first call
             return base.recommend(req, state)
+        return self.rank(req, state, state.today_views(req.user_id), state._live.get(req.user_id, ()))
+
+    def rank(self, req, state, today, bought):
+        """today: products viewed earlier today, newest last; bought: products bought live."""
+        base = ranker2.STRATEGY
         if not req.views:   # home page: today's organic views from shop.events stand in for the recent views (lock2)
-            today = [p for p in state.today_views(req.user_id) if p in state.products][-5:]
+            today = [p for p in today if p in state.products][-5:]
             if today:
                 req = replace(req, views=today)
-        live = [state.products[p].category for p in state._live.get(req.user_id, ()) if p in state.products]
+        live = [state.products[p].category for p in bought if p in state.products]
         share = {cat: live.count(cat) / len(live) for cat in set(live)}
         c = ranker2.context(req, state)
         last = c["views"][-1].category if c["views"] else None
