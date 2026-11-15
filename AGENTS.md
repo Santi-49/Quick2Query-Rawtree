@@ -8,7 +8,7 @@ Datathon FME 2026, RawTree challenge, `team_01`. Read `docs/PLAN.md` and `docs/S
 - **Never start a second writer to `team_01.submissions`.** Only `q2q serve` on the prod machine submits. Use `q2q serve --shadow` anywhere else.
 - Never write outside `team_01.*`. Our key can only insert into `submissions` and `scratch`.
 - Never clone the simulator. Record what it reacts to in `docs/SIMULATOR.md`.
-- Only `/api/state` may be called on datathon.rawtree.dev.
+- On datathon.rawtree.dev only `/api/state` and the `/leaderboard` page may be called, read-only and occasionally (allowed by the owner, 15 Nov 09:50 UTC).
 - Do not edit `starter/`.
 
 ## Prod is the VM (since 14 Nov 18:10 UTC)
