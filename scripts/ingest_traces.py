@@ -8,12 +8,14 @@ whether the call failed and how long it took. No prompts, outputs, file contents
 Run it again later: only calls not yet in RawTree are inserted.
 """
 import json
+import os
 import re
 from pathlib import Path
 
 from q2q import rt
 
-TRANSCRIPTS = Path.home() / ".claude" / "projects" / "c--Users-romag-Documents-datathon-fme-2026"
+# Claude Code keeps a project's sessions under ~/.claude/projects/<repo path, every other character as "-">
+TRANSCRIPTS = Path(os.environ.get("Q2Q_TRANSCRIPTS") or Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", str(Path(__file__).resolve().parents[1])))
 RAWTREE_SHELL = re.compile(r"q\.py|rtree|rt\.query|q2q (pull|report)|run_sql|sql/(reports|hypotheses|features)")
 
 

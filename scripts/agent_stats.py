@@ -5,6 +5,7 @@
 Reads only counts from the transcripts, never their content.
 """
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,7 +13,8 @@ from pathlib import Path
 from q2q import memory, rt
 
 ROOT = Path(__file__).resolve().parents[1]
-TRANSCRIPTS = Path.home() / ".claude" / "projects" / "c--Users-romag-Documents-datathon-fme-2026"
+# Claude Code keeps a project's sessions under ~/.claude/projects/<repo path, every other character as "-">
+TRANSCRIPTS = Path(os.environ.get("Q2Q_TRANSCRIPTS") or Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", str(Path(__file__).resolve().parents[1])))
 TOOL_USE = re.compile(r'"type":"tool_use","id":"([^"]+)","name":"([^"]+)"')
 # A shell call that runs SQL in RawTree: the ad hoc script, the CLI, the client, a pull or a report.
 RAWTREE_SHELL = re.compile(r"q\.py|rtree|rt\.query|q2q (pull|report)|run_sql|sql/(reports|hypotheses|features)")

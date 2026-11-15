@@ -236,7 +236,19 @@ The full story, with figures: [`docs/explainer.html`](docs/explainer.html). Ever
 
 ## Run it
 
-Python 3.12 and [uv](https://docs.astral.sh/uv/). Copy `.env.example` to `.env` and fill in `TEAM_ID` and `RAWTREE_API_KEY`.
+### Set up the agents
+
+You need Python 3.12, [uv](https://docs.astral.sh/uv/), [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude` on the PATH, signed in) and a RawTree API key.
+
+1. **Credentials.** Copy `.env.example` to `.env` and fill in `TEAM_ID` and `RAWTREE_API_KEY`. Never commit `.env`.
+2. **Python.** Run `uv sync`. All RawTree HTTP calls go through [`src/q2q/rt.py`](src/q2q/rt.py), which reads `.env`.
+3. **RawTree MCP server.** [`.mcp.json`](.mcp.json) is committed and points Claude Code at `https://mcp.rawtree.com/mcp`. It reads the key from the environment (`${RAWTREE_API_KEY}`), so the file never holds it. The insight workers load `.env` and pass it on. For an interactive session, export the variable first, or use `claude mcp add --transport http rawtree https://mcp.rawtree.com/mcp` and sign in with OAuth.
+4. **The orchestrator.** Run `claude` in the repo root. It reads [`CLAUDE.md`](CLAUDE.md), which loads [`AGENTS.md`](AGENTS.md): the rules every agent follows (one writer, shadow mode off prod, never print the key), the layout and the SQL casting rules. Builder and analyst subagents are started by this session with Claude Code's built-in Agent tool, so there are no extra agent files to install.
+5. **Check it.** Ask the session to list the tables in RawTree through the MCP server, and run `uv run scripts/q.py "SELECT 1"`.
+
+The insight workers need nothing more: they start headless Claude Code (`claude -p`), restricted to three RawTree MCP tools. Set `CLAUDE_BIN` if `claude` is not on the PATH. The trace loader reads the sessions Claude Code keeps under `~/.claude/projects/<repo path>`; set `Q2Q_TRANSCRIPTS` to point elsewhere.
+
+### Commands
 
 ```bash
 uv sync
@@ -247,12 +259,14 @@ uv run q2q replay                  # score strategies offline on our logged requ
 uv run q2q board                   # our models on the leaderboard, read directly
 uv run scripts/q.py "SELECT count() FROM shop.requests"   # ad hoc SQL
 uv run pytest -q
+uv run python site/app.py          # the live demo on http://127.0.0.1:8787 (/ and /rawtree)
+uv run scripts/keep_running.py scripts/leaderboard_logger.py   # copy every leaderboard refresh into RawTree
 ```
 
 <details>
 <summary>Run the insight loop</summary>
 
-The memory is rows in `team_01.scratch`, append-only; the latest row per id wins ([`src/q2q/memory.py`](src/q2q/memory.py)). The workers ([`scripts/insight_worker.py`](scripts/insight_worker.py)) run headless Claude Code that can only reach RawTree through the RawTree MCP server, configured in `.mcp.json` (not committed; it holds the key as an `Authorization: Bearer` header for `https://mcp.rawtree.com/mcp`). Read-only SQL, at most 4 queries per question.
+The memory is rows in `team_01.scratch`, append-only; the latest row per id wins ([`src/q2q/memory.py`](src/q2q/memory.py)). The workers ([`scripts/insight_worker.py`](scripts/insight_worker.py)) run headless Claude Code that can only reach RawTree through the RawTree MCP server, configured in `.mcp.json` (the key comes from `RAWTREE_API_KEY` as an `Authorization: Bearer` header, never written in the file). Read-only SQL, at most 4 queries per question.
 
 ```bash
 uv run scripts/backfill_memory.py                       # once: the 26 answered hypotheses plus seed questions

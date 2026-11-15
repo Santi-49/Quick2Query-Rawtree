@@ -3,12 +3,13 @@
     uv run scripts/insight_worker.py --workers 3 --runs 2 [--name w] [--origin self]
 
 Each answer is an insight row in team_01.scratch; its follow-ups become new questions. Safe on many machines at once:
-a question goes to the earliest claim. Claude binary: $CLAUDE_BIN, else the newest VS Code extension build.
+a question goes to the earliest claim. Claude binary: $CLAUDE_BIN, else `claude` on the PATH, else the newest VS Code extension build.
 """
 import argparse
 import glob
 import json
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -39,7 +40,7 @@ End your reply with ONE line of JSON and nothing after it:
 def claude_bin() -> str:
     found = sorted(glob.glob(os.path.expanduser("~/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude.exe")),
                    key=os.path.getmtime)
-    return os.environ.get("CLAUDE_BIN") or found[-1]
+    return os.environ.get("CLAUDE_BIN") or shutil.which("claude") or found[-1]
 
 
 def ask_claude(question: str, agent: str) -> tuple[dict, list[str], int]:
