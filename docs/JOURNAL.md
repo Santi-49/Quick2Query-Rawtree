@@ -91,3 +91,7 @@ Dated decisions: promotions, switchovers, incidents. Times are UTC.
 - Last 3 h (06:00): ordinary ranker2 2.02% vs ranker8 1.96%; new shoppers ranker8 2.73% vs ranker2 2.42% (z about 0.9); home ranker2 0.59%, cold2 0.51%, pin1 0.48% (operator: pin1 z -0.5, retired). The home-page ideas did not beat ranker2 live.
 - Operator stopped for good; queue empty. Arms set by hand: ranker2 on ordinary and home requests; new shoppers split ranker2 / ranker8 until 08:00 to decide that route. explore_share 0.02 until the freeze.
 - Restart rehearsal at 06:02: router back and answering within about 60 s, 0 errors; first window after restart compute 37 ms/req, max latency 2.7 s (warm-up).
+
+## 15 Nov 06:20 UTC: lock1 on half of main
+
+A fresh-eyes agent, given only the problem, found in live feedback that 45% of our slots sit outside the last view's category and convert at half the rate; lists with 9-10 in-category items convert 4.1% against 1.1% (observational). lock1 = ranker2's scores, row filled from the last view's category first (shadow: 10.0 of 10 in category against 4.5, 7 ms). Main route split ranker2 / lock1, edited on the VM by hand. The router restart for its label cost 78 unlabelled answers in minute 06:18. Decision at about 07:30: if lock1 leads, it becomes the main champion. Note: the laptop dashboard's sync overwrites the local arms.toml, so edit arms on the VM.
