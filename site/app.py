@@ -182,13 +182,13 @@ class Handler(SimpleHTTPRequestHandler):
             body = json.dumps(live(), default=str).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Cache-Control", "no-store")
+            self.send_header("Cache-Control", "public, max-age=2, s-maxage=2")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
         elif path == "/" or path.startswith("/static/"):
             self.path = "/index.html" if path == "/" else path[len("/static"):]
-            if self.path.lstrip("/") not in ("index.html", "style.css", "app.js"):
+            if self.path.lstrip("/") not in ("index.html", "style.css", "app.js", "logo.png"):
                 self.send_error(404)
                 return
             super().do_GET()

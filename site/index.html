@@ -4,90 +4,131 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>quick2query live</title>
-<meta name="description" content="A recommender answering shoppers in real time, built by one developer and a team of AI agents with RawTree as their shared memory.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='28' height='28' rx='8' fill='%23fff' stroke='%232f55a4' stroke-width='3'/%3E%3Ctext x='8' y='23' font-family='Arial' font-weight='900' font-size='17' fill='%230b1e4a'%3EQ%3C/text%3E%3C/svg%3E">
+<meta name="description" content="A live recommender for a simulated shop, built and tested by one developer and a fleet of AI agents that use RawTree as their shared memory.">
+<link rel="icon" type="image/png" href="/static/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
-<svg class="grain" aria-hidden="true"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0"/></filter><rect width="100%" height="100%" filter="url(#noise)"/></svg>
-<div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div><div class="orb o3" aria-hidden="true"></div>
+<body id="top">
+<div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div>
+<a class="skip" href="#stream">Skip to the live stream</a>
 
 <header class="top">
-  <a class="brand" href="#" aria-label="quick2query">
-    <span class="mark" aria-hidden="true">Q<sup>2</sup></span>
+  <a class="brand" href="#top" aria-label="quick2query">
+    <span class="logo"><img src="/static/logo.png" alt="" width="64" height="64" onerror="this.parentNode.classList.add('nologo')"></span>
     <span class="word">quick2query</span>
   </a>
+  <p class="where mono">Datathon FME 2026 · RawTree challenge · team_01</p>
   <div class="status mono"><span class="dot" id="dot"></span><span id="status">connecting</span></div>
 </header>
 
 <main>
-  <section class="hero">
+  <section class="intro" aria-labelledby="h-intro">
     <div class="lede">
-      <p class="kicker mono">Datathon FME 2026 · RawTree challenge · team_01</p>
-      <h1>One developer.<br>A team of AI agents.<br><span class="grad">RawTree</span> as their<br>shared memory.</h1>
-      <p class="sub">Every row below is a real shopper on the simulated store, answered by our recommender within three seconds, and the feedback that came back. Nothing here is a recording.</p>
+      <h1 id="h-intro">A shop sends us a shopper every 0.3 seconds. We answer with 10 products in under 3 seconds. A hidden model decides whether the shopper clicks and buys.</h1>
+      <p class="sub">Everything on this page is live. It is read every 5 seconds from RawTree, the database where every shopper, every answer and every result is stored. Nothing is a recording.</p>
     </div>
     <dl class="counters">
-      <div class="c big"><dt>Requests answered today</dt><dd class="mono" id="k-n">–</dd><span class="note mono" id="k-ontime"></span></div>
+      <div class="c"><dt>Shoppers answered today</dt><dd class="mono" id="k-n">–</dd><span class="note mono" id="k-ontime"></span></div>
       <div class="c"><dt>Purchases today</dt><dd class="mono" id="k-buys">–</dd><span class="note mono" id="k-rev"></span></div>
-      <div class="c"><dt>Conversion, last 15 min</dt><dd class="mono" id="k-conv">–</dd><span class="note mono" id="k-conv-n"></span></div>
-      <div class="c"><dt>Median answer time</dt><dd class="mono" id="k-p50">–</dd><span class="note mono">deadline 3000 ms</span></div>
+      <div class="c"><dt>Shoppers who bought, last 15 min</dt><dd class="mono" id="k-conv">–</dd><span class="note mono" id="k-conv-n"></span></div>
+      <div class="c"><dt>Median answer time</dt><dd class="mono" id="k-p50">–</dd><span class="note mono">the deadline is 3,000 ms</span></div>
     </dl>
   </section>
 
-  <section class="stream" aria-labelledby="h-stream">
+  <section class="stream" id="stream" aria-labelledby="h-stream">
     <div class="head">
-      <h2 id="h-stream"><span class="num mono">01</span>The stream</h2>
-      <p>The latest shoppers, newest first. Ten products each, coloured by category. An outlined square was clicked, a filled one was bought.</p>
+      <h2 id="h-stream"><span class="num mono">1</span>The live stream</h2>
+      <p>Each row is one shopper from the last seconds, newest on top. The shop sends about three a second; the list takes a few from every update so that each row can be followed.</p>
     </div>
-    <div class="rows" id="rows" aria-live="off"></div>
-    <ul class="legend mono" id="legend"></ul>
+    <p class="howto"><b>How to read a row:</b> when the shopper arrived, who they are, which of our strategies answered, the 10 products we showed (slot 1 on the left, one colour per category), then what the shopper did.
+      <span class="keys"><span class="key"><i class="chip clicked k-click"></i>clicked</span><span class="key"><i class="chip bought"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></i>bought</span><span class="key"><i class="chip wait"></i>not answered yet</span></span></p>
+    <div class="feed">
+      <div class="row colhead" aria-hidden="true"><span>time, UTC</span><span class="rid">request</span><span>shopper</span><span>strategy</span><span class="chips">10 products shown, slot 1 to 10</span><span>what the shopper did</span><span class="lat">answered in</span></div>
+      <div class="rows" id="rows" aria-live="off"></div>
+      <span class="paused mono" id="paused" hidden>paused while the pointer is on the list</span>
+    </div>
+    <ul class="legend mono" id="legend" aria-label="Category colours"></ul>
   </section>
 
   <section class="feedback" aria-labelledby="h-feedback">
     <div class="head">
-      <h2 id="h-feedback"><span class="num mono">02</span>The feedback</h2>
-      <p>The store tells us, a few seconds later, what each shopper did. It is our only teacher.</p>
+      <h2 id="h-feedback"><span class="num mono">2</span>Is it working?</h2>
+      <p>A few seconds after each answer the shop reports what the shopper did. That feedback is the only signal we get, and it is all in RawTree.</p>
     </div>
     <figure class="panel conv">
-      <figcaption><b>Conversion per minute, last 2 hours</b> <span class="mono" id="conv-cap"></span></figcaption>
-      <svg id="conv" viewBox="0 0 800 260" role="img" aria-label="Conversion per minute over the last two hours"></svg>
+      <figcaption><b>Share of shoppers who bought, last 2 hours</b> <span class="mono" id="conv-cap"></span></figcaption>
+      <svg id="conv" viewBox="0 0 800 260" role="img" aria-label="Share of shoppers who bought, per minute, over the last two hours"></svg>
+      <p class="notice" id="conv-note"><b>What to notice:</b> the dark line is the 10-minute average; each dot is one minute.</p>
     </figure>
     <figure class="panel slots">
-      <figcaption><b>Clicks by position, last hour</b> <span class="mono" id="slot-cap"></span></figcaption>
+      <figcaption><b>Clicks by slot, last hour</b> <span class="mono" id="slot-cap"></span></figcaption>
       <svg id="slots" viewBox="0 0 400 260" role="img" aria-label="Clicks by slot 1 to 10 over the last hour"></svg>
+      <p class="notice" id="slot-note"><b>What to notice:</b> shoppers look at the first slots most.</p>
     </figure>
   </section>
 
   <section class="agents" aria-labelledby="h-agents">
     <div class="head">
-      <h2 id="h-agents"><span class="num mono">03</span>The agents</h2>
-      <p>One person decides. Agents build, check each other and write what they learn into RawTree, where every other agent can query it. The router reads the same tables to answer shoppers.</p>
+      <h2 id="h-agents"><span class="num mono">3</span>How it is built: a fleet of agents around one shared memory</h2>
+      <p>One person decides. Agents build, check and query, and each one writes what it learns into RawTree, where the others read it. The bold names are general roles. The line starting with "here" says what filled the role in this challenge. The numbers are live.</p>
     </div>
-    <div class="panel diagram"><svg id="diagram" role="img" aria-label="Developer, main agent, parallel subagents, RawTree, router on a VM, shop, and the night operator loop"></svg></div>
+    <div class="panel diagram"><svg id="diagram" role="img" aria-label="A developer directs an orchestrator agent. It hands work to builder agents, analyst agents and insight workers. All of them read and write RawTree. A live service reads RawTree to answer the data stream, and an operator loop moves live traffic to the strategies that win."></svg></div>
+  </section>
+
+  <section class="loop" aria-labelledby="h-loop">
+    <div class="head">
+      <h2 id="h-loop"><span class="num mono">4</span>The loop every idea goes through</h2>
+      <p>No idea reaches all shoppers on an offline result. It gets a share of live traffic first, and the feedback decides.</p>
+    </div>
+    <ol class="steps">
+      <li><b>Question</b><span>Someone asks something the data can answer.</span><em class="mono" id="l-q"></em></li>
+      <li><b>SQL in RawTree</b><span>The question becomes a query on the raw events. There is no schema to prepare.</span><em class="mono" id="l-sql"></em></li>
+      <li><b>Strategy</b><span>A useful answer becomes one file of code that picks the 10 products.</span><em class="mono" id="l-str"></em></li>
+      <li><b>Live test</b><span>The router gives it a fixed share of real shoppers, split by a hash.</span><em class="mono" id="l-arms"></em></li>
+      <li><b>Verdict</b><span>Supported, rejected or open. It is written to RawTree as a row.</span><em class="mono" id="l-ins"></em></li>
+      <li><b>Next question</b><span>The verdict is where the next question starts.</span><em class="mono">back to step 1</em></li>
+    </ol>
   </section>
 
   <section class="tested" aria-labelledby="h-tested">
     <div class="head">
-      <h2 id="h-tested"><span class="num mono">04</span>What one developer tested</h2>
-      <p>Offline results filtered ideas; live traffic decided. Counted from the repository and from RawTree.</p>
+      <h2 id="h-tested"><span class="num mono">5</span>What one developer tested</h2>
+      <p>Counted from the repository, the agent logs and RawTree. <span class="mono" id="tested-at"></span></p>
     </div>
-    <dl class="figures" id="figures"></dl>
+    <dl class="ledger" id="figures"></dl>
   </section>
 
   <section class="insights" aria-labelledby="h-insights">
     <div class="head">
-      <h2 id="h-insights"><span class="num mono">05</span>The insight loop, live</h2>
-      <p>An agent asks a question, answers it with SQL in RawTree, and records the finding and its verdict. The next agent starts from there.</p>
+      <h2 id="h-insights"><span class="num mono">6</span>The insight loop, live</h2>
+      <p>Insight workers run in parallel. Each takes an open question, queries RawTree through its MCP server and writes the finding and a verdict back as a row. These are the latest rows. <span class="mono" id="ins-cap"></span></p>
     </div>
-    <div class="cards" id="cards"></div>
+    <div class="inslist" id="cards"></div>
+  </section>
+
+  <section class="closing" aria-labelledby="h-closing">
+    <div class="head">
+      <h2 id="h-closing"><span class="num mono">7</span>The same fleet works on any stream that changes</h2>
+      <p>Nothing in the fleet is about shopping. On device telemetry, logs or prices, the roles, the shared memory and the loop stay the same. Only the SQL and the strategies change.</p>
+    </div>
+    <div class="tablewrap">
+      <table class="streams">
+        <thead><tr><th scope="col">Stream</th><th scope="col">A question an agent asks</th><th scope="col">The strategy under live test</th><th scope="col">The verdict comes from</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">A shop <span class="here">this demo</span></th><td>Which products does this shopper buy next?</td><td>A ranking of 10 products</td><td>Purchases</td></tr>
+          <tr><th scope="row">Device telemetry <span class="here">example</span></th><td>Which readings change before a failure?</td><td>An alert rule</td><td>Alerts a technician confirms</td></tr>
+          <tr><th scope="row">Logs <span class="here">example</span></th><td>Which error patterns come before an outage?</td><td>A paging rule</td><td>Incidents caught, false pages</td></tr>
+          <tr><th scope="row">Prices <span class="here">example</span></th><td>Which price moves change demand?</td><td>A repricing rule</td><td>Revenue per visit</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 </main>
 
-<footer class="foot mono"><span>quick2query · one developer, many agents</span><span id="sources"></span></footer>
+<footer class="foot mono"><span>quick2query · one developer and a fleet of agents</span><span id="sources"></span></footer>
 <script src="/static/app.js"></script>
 </body>
 </html>
