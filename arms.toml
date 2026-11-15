@@ -1,8 +1,8 @@
 champion = "ranker2"
 schedule = ["ranker2"]   # arms for ordinary requests; several arms split the shoppers evenly; empty = champion
-explore_share = 0.02
+explore_share = 0.0
 salt = "q2q-1"
 
 [routes]                 # cold requests get their own arms; a list splits the shoppers evenly; empty = as above
-no_views = ["cold2", "ranker2"]   # no recent views: the home page
-new_shopper = []                 # new shopper with recent views
+no_views = ["ranker2"]   # no recent views: the home page
+new_shopper = ["ranker8"]   # new shopper with recent views
