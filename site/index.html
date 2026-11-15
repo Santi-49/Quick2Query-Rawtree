@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=4">
+<link rel="stylesheet" href="/static/style.css?v=6">
 </head>
 <body id="top">
 <div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div>
@@ -86,6 +86,17 @@
       <div><dt>The context</dt><dd>page, device, new or returning</dd></div>
     </dl>
     <p class="result">About 34 inputs per candidate, in the four groups above. <b>Result:</b> within hours of going live it went from 14th to a best of 8th of 42 teams.</p>
+    <details class="mdetail">
+      <summary>More detail on the model</summary>
+      <div class="mdetail-grid">
+        <div><h3>What it learns from</h3><p>Every product we showed and what the shopper did with it. The first model trained on 601,187 shown products and 1,794 clicks. The slot is an input during training, and every candidate is scored as if it sat in slot 1, so the model learns what the shopper wants rather than where we happened to put it.</p></div>
+        <div><h3>Two models, one score</h3><p>The click model gives the chance of a click. A second model gives the chance that a click becomes a purchase; before it existed we used measured rates, 81% for a product viewed recently and 27% for anything else. Trend and price-cut boosts are small multipliers on top.</p></div>
+        <div><h3>How we knew it was better</h3><p>Offline, on the newest fifth of the data, it ranked a clicked product above an unclicked one 78% of the time, against 71% for the slot alone. Offline only filters. A strategy is promoted only after it leads live, in two 30-minute windows in a row with about 1,000 shoppers per strategy.</p></div>
+        <div><h3>Staying fresh and safe</h3><p>Retrained every 20 minutes and pushed to the server, which swaps it in without a restart. Until a model file exists it answers with a rule strategy, and if scoring fails a guard fills the answer, so every shopper always gets 10 valid products in time.</p></div>
+        <div><h3>The last read before the final</h3><p>Over 75 minutes on Sunday morning it beat every challenger on ordinary shoppers, and its variant for new shoppers, <b class="mono">shaleE-n</b>, beat the rest on new shoppers by a wide margin. Early leads by challengers in shorter windows turned out to be noise.</p></div>
+        <div><h3>What it did not solve</h3><p>The home page, where the shopper has viewed nothing yet. There it stayed about level with the shop's baseline, and no idea we tried beat it live over 3 hours.</p></div>
+      </div>
+    </details>
   </section>
 
   <section class="agents" id="agents-sec" data-view="shop" aria-labelledby="h-agents">

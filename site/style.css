@@ -283,3 +283,13 @@ figure svg { width: 100%; height: auto; display: block; overflow: visible; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 .intro .case { font-size: 15px; line-height: 1.55; color: var(--ink-2, #3a4a66); max-width: 62ch; margin: var(--s3) 0 0; padding-left: 12px; border-left: 2px solid currentColor; }
+.mdetail { margin: var(--s5) 0 0; border-top: 1px solid var(--line); }
+.mdetail summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: var(--s2); min-height: 44px; font-weight: 600; font-size: 15px; color: var(--ink); }
+.mdetail summary::-webkit-details-marker { display: none; }
+.mdetail summary::before { content: "+"; font: 600 16px var(--mono); width: 1ch; transition: transform .2s ease-out; }
+.mdetail[open] summary::before { content: "\2212"; }
+.mdetail summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 4px; }
+.mdetail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4) var(--s5); padding: var(--s3) 0 var(--s2); }
+.mdetail-grid h3 { font-size: 15px; font-weight: 600; margin: 0 0 var(--s1); }
+.mdetail-grid p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+@media (max-width: 900px) { .mdetail-grid { grid-template-columns: minmax(0, 1fr); } }
