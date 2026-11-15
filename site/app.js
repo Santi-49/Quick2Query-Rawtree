@@ -548,7 +548,31 @@ function kinds(rows) {
   list.forEach(([k, , , , n, last]) => { count("kn-" + k, Number(n)); text("kl-" + k, last ? last.slice(5) : ""); });
 }
 
+function prod(p) {
+  const el = $("dp-live");
+  if (!el || !p || !p.ts) return;
+  const age = Number(p.age);
+  const since = p.started ? p.started.slice(5, 16) : "";
+  text("dp-live", `heartbeat ${isNaN(age) ? "-" : age < 60 ? age + " s" : Math.round(age / 60) + " min"} ago${since ? " · this process since " + since + " UTC" : ""}`);
+  el.classList.toggle("stale", !(age < 120));
+}
+const CH_COL = ["var(--ink)", "#4f7cc4", "#7fb08f", "#c9a24a", "#b36b6b"];
+function champ(arms) {
+  const bar = $("ch-bar"), leg = $("ch-legend");
+  if (!bar || !arms || !arms.length) return;
+  const total = arms.reduce((n, a) => n + a.n, 0);
+  const keys = arms.map((a) => a.label).join();
+  if (bar.dataset.keys !== keys) {
+    bar.dataset.keys = keys;
+    bar.innerHTML = arms.map((a, i) => `<span style="background:${CH_COL[i % CH_COL.length]}" id="chb-${i}"></span>`).join("");
+    leg.innerHTML = arms.map((a, i) => `<span><i style="background:${CH_COL[i % CH_COL.length]}"></i>${esc(a.label || "unlabelled")} <b id="chl-${i}"></b></span>`).join("");
+  }
+  arms.forEach((a, i) => { $("chb-" + i).style.flexGrow = a.n; text("chl-" + i, `${Math.round(100 * a.n / total)}%`); });
+  text("ch-total", `· ${fmt(total)} shoppers`);
+}
 function render(d) {
+  prod(d.prod);
+  champ(d.arms);
   kinds(d.scratch);
   const age = d.stream_age_s;
   $("dot").className = "dot " + (age != null && age < 20 ? "on" : "stale");

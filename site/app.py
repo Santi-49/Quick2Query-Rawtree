@@ -56,9 +56,10 @@ SELECT * FROM {TEAM}.scratch
 WHERE kind::String IN ('insight', 'question', 'claim', 'arms', 'operator', 'lease', 'explore', 'leaderboard', 'block')
   AND (kind::String != 'leaderboard' OR (team_id::String = '{TEAM}' AND mode::String = 'practice'))
 ORDER BY ts::String DESC LIMIT 1 BY kind::String""",
+    "lease": "SELECT ts::String AS ts, started::String AS started, dateDiff('second', ts::DateTime64(3), now64(3)) AS age FROM {TEAM}.scratch WHERE kind::String = 'lease' ORDER BY ts::String DESC LIMIT 1",
     "scratch": "SELECT kind::String AS k, count() AS n, max(ts::String) AS last FROM {TEAM}.scratch GROUP BY k ORDER BY n DESC",
 }
-EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15, "examples": 30}   # slower-moving sources, seconds
+EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15, "examples": 30, "lease": 5}   # slower-moving sources, seconds
 
 cache: dict[str, dict] = {}       # name -> {"rows", "at", "error", "ms"}
 categories: dict[str, str] = {}
@@ -202,6 +203,7 @@ def live() -> dict:
         "insights": insights(rows["insights"]),
         "questions_open": (rows["questions"] or [{}])[0].get("open"),
         "scratch": [{"kind": r["k"], "n": r["n"], "last": scratch_text(r["last"])[:16]} for r in rows["scratch"]],
+        "prod": {k: scratch_text(v)[:19] for k, v in (rows["lease"] or [{}])[0].items()},
         "stats": s,
     }
 

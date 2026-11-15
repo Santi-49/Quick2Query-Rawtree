@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=8">
+<link rel="stylesheet" href="/static/style.css?v=10">
 </head>
 <body id="top">
 <div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div>
@@ -109,6 +109,64 @@
     </div>
   </section>
 
+  <section class="devprod" aria-labelledby="h-devprod">
+    <div class="head">
+      <h2 id="h-devprod">Dev on the laptop, prod on a VM</h2>
+      <p>The agents can break anything on the laptop; the shop never notices. Only three things travel to production, and RawTree is the one place both sides read and write.</p>
+    </div>
+    <div class="dp">
+      <div class="dp-box">
+        <h3>Laptop <span>dev</span></h3>
+        <p class="dp-sub">Where the agents work</p>
+        <ul>
+          <li>The orchestrator agent and its subagents build, analyse and test</li>
+          <li>Models are trained on our own feedback</li>
+          <li>Offline tests and SQL in RawTree filter every idea</li>
+          <li>A copy of the router runs in shadow mode: it computes answers and never sends them</li>
+        </ul>
+      </div>
+      <div class="dp-flow" aria-label="What travels from dev to prod">
+        <div><b>Code</b><span>commit, one deploy command, hot reloaded</span></div>
+        <div><b>A new model</b><span>every 20 minutes, swapped in without a restart</span></div>
+        <div><b>The traffic split</b><span>one file, reloaded within seconds</span></div>
+      </div>
+      <div class="dp-box prod">
+        <h3>VM <span>prod</span></h3>
+        <p class="dp-sub">Answers every shopper, around the clock</p>
+        <ul>
+          <li>The router runs under systemd and restarts itself</li>
+          <li>A guard always returns 10 valid products in time</li>
+          <li>Exactly one process writes answers, proved by a heartbeat row</li>
+        </ul>
+        <p class="dp-live mono" id="dp-live">reading the heartbeat</p>
+      </div>
+      <div class="dp-rt"><b>RawTree</b><span>shop events and feedback · our answers · the heartbeat · every traffic split and decision · the agents' memory</span></div>
+    </div>
+  </section>
+
+  <section class="champ" aria-labelledby="h-champ">
+    <div class="head">
+      <h2 id="h-champ">Champion against challengers, on live traffic</h2>
+      <p>Offline results only filter. Every strategy that survives gets a fixed share of real shoppers, split by a hash, and the leaderboard scores each one on its own. A challenger replaces the champion only after leading two 30-minute windows in a row. Overnight an operator loop ran these trials unattended and wrote every decision to RawTree.</p>
+    </div>
+    <div class="ch-now">
+      <p class="ch-cap"><b>Right now:</b> how the last 15 minutes of shoppers were shared <span class="mono" id="ch-total"></span>. In the final the challengers are off: each kind of shopper gets its champion (<b class="mono">-n</b> new shoppers, <b class="mono">-h</b> home page).</p>
+      <div class="ch-bar" id="ch-bar" role="img" aria-label="Share of shoppers per strategy in the last 15 minutes"></div>
+      <div class="ch-legend mono" id="ch-legend"></div>
+    </div>
+    <ol class="ch-time">
+      <li><time>Sat 13:26</time><p>Our service takes over from the starter. Champion: the shop's baseline.</p></li>
+      <li><time>13:36</time><p><b class="mono">flint</b>, a rule strategy, becomes champion after 8 minutes ahead.</p></li>
+      <li><time>15:08</time><p><b class="mono">slate</b> replaces it: ahead in two block pairs.</p></li>
+      <li><time>16:35</time><p><b class="mono">jasper</b>, the first learned model, wins two 30-minute windows: 1.54% against 1.29%.</p></li>
+      <li><time>17:25</time><p><b class="mono">onyx</b> takes over while the next model is tested. We are 14th.</p></li>
+      <li><time>18:10</time><p>Production moves from the laptop to the VM.</p></li>
+      <li class="win"><time>18:28</time><p><b class="mono">shale</b>, the learned ranker, becomes champion. Rank 14th to 9th, later a best of 8th of 42.</p></li>
+      <li><time>Overnight</time><p>The operator gives challengers 150 minutes each against <b class="mono">shale</b>. None is ahead; each is retired and logged.</p></li>
+      <li class="win"><time>Sun 07:59</time><p>Final split from a 75-minute read: <b class="mono">shale</b> +55.0 against the best challenger's +52.3; for new shoppers <b class="mono">shaleE-n</b> +85.9 against +67.7. Early leads in short windows were noise.</p></li>
+    </ol>
+  </section>
+
   <section class="agents" id="agents-sec" data-view="shop" aria-labelledby="h-agents">
     <div class="head">
       <h2 id="h-agents">How it is built: a fleet of agents around one shared memory</h2>
@@ -192,6 +250,6 @@
 </main>
 
 <footer class="foot mono"><span>quick2query · one developer and a fleet of agents</span><span id="sources"></span></footer>
-<script src="/static/app.js?v=8"></script>
+<script src="/static/app.js?v=10"></script>
 </body>
 </html>
