@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>quick2query live</title>
+<meta name="description" content="A recommender answering shoppers in real time, built by one developer and a team of AI agents with RawTree as their shared memory.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='28' height='28' rx='8' fill='%23fff' stroke='%232f55a4' stroke-width='3'/%3E%3Ctext x='8' y='23' font-family='Arial' font-weight='900' font-size='17' fill='%230b1e4a'%3EQ%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<svg class="grain" aria-hidden="true"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0"/></filter><rect width="100%" height="100%" filter="url(#noise)"/></svg>
+<div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div><div class="orb o3" aria-hidden="true"></div>
+
+<header class="top">
+  <a class="brand" href="#" aria-label="quick2query">
+    <span class="mark" aria-hidden="true">Q<sup>2</sup></span>
+    <span class="word">quick2query</span>
+  </a>
+  <div class="status mono"><span class="dot" id="dot"></span><span id="status">connecting</span></div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="lede">
+      <p class="kicker mono">Datathon FME 2026 · RawTree challenge · team_01</p>
+      <h1>One developer.<br>A team of AI agents.<br><span class="grad">RawTree</span> as their<br>shared memory.</h1>
+      <p class="sub">Every row below is a real shopper on the simulated store, answered by our recommender within three seconds, and the feedback that came back. Nothing here is a recording.</p>
+    </div>
+    <dl class="counters">
+      <div class="c big"><dt>Requests answered today</dt><dd class="mono" id="k-n">–</dd><span class="note mono" id="k-ontime"></span></div>
+      <div class="c"><dt>Purchases today</dt><dd class="mono" id="k-buys">–</dd><span class="note mono" id="k-rev"></span></div>
+      <div class="c"><dt>Conversion, last 15 min</dt><dd class="mono" id="k-conv">–</dd><span class="note mono" id="k-conv-n"></span></div>
+      <div class="c"><dt>Median answer time</dt><dd class="mono" id="k-p50">–</dd><span class="note mono">deadline 3000 ms</span></div>
+    </dl>
+  </section>
+
+  <section class="stream" aria-labelledby="h-stream">
+    <div class="head">
+      <h2 id="h-stream"><span class="num mono">01</span>The stream</h2>
+      <p>The latest shoppers, newest first. Ten products each, coloured by category. An outlined square was clicked, a filled one was bought.</p>
+    </div>
+    <div class="rows" id="rows" aria-live="off"></div>
+    <ul class="legend mono" id="legend"></ul>
+  </section>
+
+  <section class="feedback" aria-labelledby="h-feedback">
+    <div class="head">
+      <h2 id="h-feedback"><span class="num mono">02</span>The feedback</h2>
+      <p>The store tells us, a few seconds later, what each shopper did. It is our only teacher.</p>
+    </div>
+    <figure class="panel conv">
+      <figcaption><b>Conversion per minute, last 2 hours</b> <span class="mono" id="conv-cap"></span></figcaption>
+      <svg id="conv" viewBox="0 0 800 260" role="img" aria-label="Conversion per minute over the last two hours"></svg>
+    </figure>
+    <figure class="panel slots">
+      <figcaption><b>Clicks by position, last hour</b> <span class="mono" id="slot-cap"></span></figcaption>
+      <svg id="slots" viewBox="0 0 400 260" role="img" aria-label="Clicks by slot 1 to 10 over the last hour"></svg>
+    </figure>
+  </section>
+
+  <section class="agents" aria-labelledby="h-agents">
+    <div class="head">
+      <h2 id="h-agents"><span class="num mono">03</span>The agents</h2>
+      <p>One person decides. Agents build, check each other and write what they learn into RawTree, where every other agent can query it. The router reads the same tables to answer shoppers.</p>
+    </div>
+    <div class="panel diagram"><svg id="diagram" role="img" aria-label="Developer, main agent, parallel subagents, RawTree, router on a VM, shop, and the night operator loop"></svg></div>
+  </section>
+
+  <section class="tested" aria-labelledby="h-tested">
+    <div class="head">
+      <h2 id="h-tested"><span class="num mono">04</span>What one developer tested</h2>
+      <p>Offline results filtered ideas; live traffic decided. Counted from the repository and from RawTree.</p>
+    </div>
+    <dl class="figures" id="figures"></dl>
+  </section>
+
+  <section class="insights" aria-labelledby="h-insights">
+    <div class="head">
+      <h2 id="h-insights"><span class="num mono">05</span>The insight loop, live</h2>
+      <p>An agent asks a question, answers it with SQL in RawTree, and records the finding and its verdict. The next agent starts from there.</p>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+</main>
+
+<footer class="foot mono"><span>quick2query · one developer, many agents</span><span id="sources"></span></footer>
+<script src="/static/app.js"></script>
+</body>
+</html>
