@@ -111,3 +111,7 @@ price1 = ranker2 x (1 + 0.5 x price percentile in category); shadow mean price s
 ## 15 Nov 06:35 UTC: Santi: test candidates until the freeze rather than play safe; seen1 on new shoppers
 
 Santi prefers that untested candidates get live trials before 08:30 over spending the time on reliability. No more router restarts (new arms use hash labels). seen1 = the last two viewed products in slots 1-2, then ranker2; new-shopper route split ranker2 / ranker8 / seen1, label m7ff44-n.
+
+## 15 Nov 06:42 UTC: goal top 5; aff1 and super1 live on every route, lock1 and price1 dropped
+
+Santi: the goal is top 5, do things differently. Per-arm read 06:35 (35 min): lock1 +33 against ranker2 +52 on main, dropped. ranker8 beats ranker2 for new shoppers over 3 h (+78.5 against +63.1, 3.8k requests each): ranker8 is now the new-shopper base. Second fresh-eyes agent: a shopper's live purchase share of a category multiplies conversion up to x4 (monotone, within buyers); subcategory live rates spread 10x; a few products trend. aff1 = ranker2 x affinity (mac5e8). super1 = ranker2 x affinity x last-category x2 x live subcategory rate x hot product, home page uses today's views (m6eb87). Price showed no penalty but no clear gain: price1 dropped. Arms: main ranker2/lock3/aff1/super1, home ranker2/aff1/super1, new shoppers ranker8/seen1/aff1/super1.
