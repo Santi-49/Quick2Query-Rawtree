@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=13">
+<link rel="stylesheet" href="/static/style.css?v=14">
 <style>
   .rt-back { font: 500 14px var(--mono); color: var(--ink-2); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-height: 44px; display: inline-flex; align-items: center; }
   .rt-back:hover { color: var(--ink); border-color: var(--ink-3); }
@@ -68,7 +68,7 @@
       <li><b>The agents think with it.</b> Questions, work claims and findings are rows any agent reads, so parallel agents never collide.</li>
       <li><b>The live system runs on it.</b> Traffic splits, the single-writer lock and the overnight operator's decisions.</li>
       <li><b>The models learn from it.</b> Exploration lists with their probabilities, and every leaderboard refresh to judge each idea.</li>
-      <li><b>We watch the fleet with it.</b> Every tool call an agent made, with tokens and failures, next to everything else.</li>
+      <li><b>The fleet audits itself with it.</b> Every tool call an agent made, with tokens and failures. The agents query these traces themselves; their first audit found that their own MCP calls were missing, and now each worker writes its own trace rows.</li>
     </ul>
     <p class="rt-small">Each kind arrived as JSON in whatever shape it had, nested lists and objects included, and new kinds were added during the event by just inserting them. All of it is read back with the same SQL.</p>
     <p class="rt-results"><a href="/#h-results">See what these rows tell us on the live page</a></p>
@@ -96,7 +96,7 @@
 
 <script>
 const KINDS = [
-  ["telemetry", "agent_trace", "Agent traces", "agent telemetry", "One row per tool call: which agent, which tool, the input fields, the model, the <b>usage</b> in tokens, whether it touched RawTree and whether it failed.", "To see what the fleet did, what it cost and where it failed, Langfuse-style, next to everything else.", "a trace loader"],
+  ["telemetry", "agent_trace", "Agent traces", "agent telemetry", "One row per tool call: which agent, which tool, the input fields, the model, the <b>usage</b> in tokens, whether it touched RawTree and whether it failed.", "So the agents can query their own history, what it cost and where it failed, Langfuse-style, next to everything else.", "a trace loader and the insight workers"],
   ["telemetry", "lease", "Production heartbeat", "VM telemetry", "A heartbeat every few seconds from the process answering the shop: host, process id, start time and the strategy it serves.", "To prove only one process answers, and to see at once if production stops or restarts.", "the live service"],
   ["telemetry", "leaderboard", "Leaderboard copies", "competition telemetry", "Every public leaderboard refresh, per team and per model: conversion, cold start, time on deadline, requests.", "To judge each idea on live traffic and to replay our rank over the whole event.", "a logger"],
   ["telemetry", "block", "Test blocks", "experiment telemetry", "The early timed A/B blocks: arm, share, click and purchase rates, lift and score.", "To decide promotions before the leaderboard scored each model on its own.", "a logger"],
@@ -104,7 +104,7 @@ const KINDS = [
   ["state", "claim", "Claims", "agent memory", "A worker's reservation of a question: agent and time.", "The earliest claim wins, so parallel workers never take the same question, with no lock server.", "insight workers"],
   ["state", "insight", "Insights", "agent memory", "The finding and a verdict, with the exact <b>sql</b>, the <b>tools_used</b>, the <b>mcp_calls</b> and the <b>next</b> questions.", "So results can be checked and rerun, and each verdict starts the next question.", "insight workers"],
   ["state", "arms", "Traffic splits", "control", "Every change to which strategy gets which share of shoppers, with the champion, the exploration share and the hash salt.", "So the live service and the agents agree on the split, and every change is on record.", "the live service"],
-  ["state", "operator", "Operator decisions", "control", "The overnight loop's reading of each strategy (<b>board</b>) and what it kept, started or retired, and why (<b>notes</b>).", "So decisions taken with nobody watching can be audited with one query.", "the operator"],
+  ["state", "operator", "Operator decisions", "control", "The overnight loop's reading of each strategy (<b>board</b>) and what it kept, started or retired, and why (<b>notes</b>).", "So decisions taken with nobody watching can be audited with one query.", "the operator, a statistical rule"],
   ["state", "explore", "Exploration log", "learning data", "Lists shown to a small exploration share, with the probability of each list (<b>propensity</b>).", "So the models learn about products the champion would never show, without bias.", "the live service"],
 ];
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));

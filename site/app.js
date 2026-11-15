@@ -591,6 +591,11 @@ function results(a) {
     const best = rank.reduce((m, x) => x.rank < m.rank ? x : m, rank[0]);
     text("res-rank-axis", `hourly average of ${fmt(rank.reduce((n, x) => n + x.snaps, 0))} copies · best hour ${best.h.slice(5, 13)}:00 UTC, about ${Math.round(best.rank)}th of 42`);
   }
+  const au = a.audit || [];
+  if (au.length && $("res-audit").dataset.n !== String(au.length)) {
+    $("res-audit").dataset.n = String(au.length);
+    $("res-audit").innerHTML = au.slice(0, 4).map((x) => `<li title="${esc(x.f)}"><b>${esc(x.q)}</b>${esc(x.f.length > 240 ? x.f.slice(0, x.f.lastIndexOf(" ", 230)) + "…" : x.f)}<span>${esc(x.v)} · ${x.mcp} RawTree MCP calls</span></li>`).join("");
+  }
   const v = a.verdicts || {};
   const total = (v.supported || 0) + (v.rejected || 0) + (v.open || 0);
   if (total) {

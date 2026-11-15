@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=13">
+<link rel="stylesheet" href="/static/style.css?v=14">
 </head>
 <body id="top">
 <div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div>
@@ -102,10 +102,16 @@
   <section class="part" id="side" aria-labelledby="h-side">
     <h2 id="h-side">Agents on RawTree: the side challenge</h2>
     <p class="part-lead">Answering the shop is the main challenge. Everything from here down is how one developer built it: a fleet of agents that use RawTree for far more than the shop's data. It is their shared memory, the system's log and the judge of every idea.</p>
+    <dl class="brief">
+      <div><dt>For</dt><dd>One developer running a live system whose data keeps changing: a shop here, sensors or prices elsewhere.</dd></div>
+      <div><dt>Problem</dt><dd>What worked yesterday stops working, and there is never time to design a schema for each new kind of data.</dd></div>
+      <div><dt>The agents decide</dt><dd>What to store, which questions to ask next, which strategies to build and test, and what their own traces say about how they work.</dd></div>
+      <div><dt>Why RawTree</dt><dd>Any JSON goes in as it is, every new kind is just inserted, and agents query it through MCP, the CLI or the API with plain SQL.</dd></div>
+    </dl>
     <div class="pillars">
       <div><h3>RawTree beyond the shop's data</h3><p>Our own table holds the agents' questions, claims and findings, every change to the traffic split, the overnight operator's decisions, the single-writer lock and a copy of every leaderboard refresh. The live counts are below, and <a href="/rawtree">real rows of each kind are on their own page</a>.</p></div>
       <div><h3>Dev on the laptop, prod on a VM</h3><p>The agents work on the laptop: they train, test offline and run the router in shadow mode, which computes answers without sending them. The VM serves around the clock under systemd, restarts itself, reloads the traffic split without a restart and gets a new model every 20 minutes. Breaking something in dev never touches prod.</p></div>
-      <div><h3>Every idea earns live traffic</h3><p>The router splits shoppers by a hash between the champion and its challengers in fixed shares. The leaderboard scores each one separately, and a challenger is promoted only after it leads two 30-minute windows in a row. Overnight an operator loop did this unattended.</p></div>
+      <div><h3>Every idea earns live traffic</h3><p>The router splits shoppers by a hash between the champion and its challengers in fixed shares. The leaderboard scores each one separately, and a challenger is promoted only after it leads two 30-minute windows in a row. Overnight a statistical rule, not an LLM, did this unattended: the agents propose, the rule promotes.</p></div>
     </div>
   </section>
 
@@ -233,6 +239,11 @@
         <div class="res-bars" id="res-hours" role="img" aria-label="Agent tool calls per hour across the event"></div>
         <p class="res-axis mono" id="res-hours-axis"></p>
       </article>
+      <article class="res-card res-wide">
+        <h3>The agents audit themselves</h3>
+        <p class="res-sub">We asked the insight workers about their own traces. They answered with SQL over the agent_trace rows and wrote follow-up questions for each other. Their first audit found a gap: their own RawTree MCP calls were missing from the traces, because headless sessions keep no log. Now each worker writes its own trace rows as it runs.</p>
+        <ol class="res-audit" id="res-audit"></ol>
+      </article>
       <article class="res-card">
         <h3>What the agents concluded</h3>
         <p class="res-sub">Verdicts on the insight rows, written by the agents themselves.</p>
@@ -277,6 +288,6 @@
 </main>
 
 <footer class="foot mono"><span>quick2query · one developer and a fleet of agents</span><span id="sources"></span></footer>
-<script src="/static/app.js?v=13"></script>
+<script src="/static/app.js?v=15"></script>
 </body>
 </html>

@@ -70,10 +70,13 @@ SELECT toStartOfHour(parseDateTimeBestEffort(t))::String AS h, round(avg(rk), 1)
          rank() OVER (PARTITION BY ts::String ORDER BY toFloat64OrZero(toString(conversion)) DESC) AS rk
   FROM {TEAM}.scratch WHERE kind::String = 'leaderboard' AND mode::String = 'practice' AND team_id::String LIKE 'team_%')
 WHERE id = '{TEAM}' GROUP BY h ORDER BY h""",
+    "audit": """
+SELECT question::String AS q, finding::String AS f, verdict::String AS v, mcp_calls::Int64 AS mcp, ts::String AS ts
+FROM {TEAM}.scratch WHERE kind::String = 'insight' AND agent::String LIKE 'self%' ORDER BY ts::String""",
     "verdicts": "SELECT verdict::String AS v, count() AS n FROM {TEAM}.scratch WHERE kind::String = 'insight' GROUP BY v",
     "scratch": "SELECT kind::String AS k, count() AS n, max(ts::String) AS last FROM {TEAM}.scratch GROUP BY k ORDER BY n DESC",
 }
-EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15, "examples": 30, "lease": 5, "traces_who": 60, "traces_hour": 60, "lb_rank": 300, "verdicts": 30}   # slower-moving sources, seconds
+EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15, "examples": 30, "lease": 5, "traces_who": 60, "traces_hour": 60, "lb_rank": 300, "verdicts": 30, "audit": 60}   # slower-moving sources, seconds
 
 cache: dict[str, dict] = {}       # name -> {"rows", "at", "error", "ms"}
 categories: dict[str, str] = {}
@@ -193,7 +196,8 @@ def examples(rows: list[dict]) -> dict:
 def analysis(rows: dict) -> dict:
     """Results computed in RawTree from the rows we saved without a schema."""
     return {"traces": rows["traces_who"], "trace_hours": rows["traces_hour"], "rank": rows["lb_rank"],
-            "verdicts": {r["v"]: r["n"] for r in rows["verdicts"]}}
+            "verdicts": {r["v"]: r["n"] for r in rows["verdicts"]},
+            "audit": json.loads(hide_names(json.dumps(rows["audit"])))}
 
 
 def stats() -> dict:

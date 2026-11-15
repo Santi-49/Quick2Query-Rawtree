@@ -12,14 +12,22 @@ Datathon FME 2026 · RawTree challenge · team_01 · side challenge: *Best agent
 > **Live demo:** [quick2query.com](https://quick2query.com) shows real-time predictions, feedback, the agent fleet and the numbers.
 > **[quick2query.com/rawtree](https://quick2query.com/rawtree)** shows the newest real row of each kind our agents keep in RawTree, read live.
 
+| | |
+|---|---|
+| **For** | One developer running a live system whose data keeps changing: a shop here, sensors, logs or prices elsewhere. |
+| **Problem** | What worked yesterday stops working, and there is never time to design a schema for each new kind of data. |
+| **The agents decide** | What to store, which questions to ask next, which strategies to build and test, and what their own traces say about how they work. |
+| **Why RawTree** | Any JSON goes in as it is, a new kind of data is just inserted, and agents query everything through the MCP server, the CLI or the API with plain SQL. |
+
 A simulated shop sends us a shopper about every 0.3 seconds. We answer with 10 products in under 3 seconds, and a hidden model decides whether the shopper clicks and buys.
 
 That is the main challenge. This README is about how we worked on it:
 
-- **Agents drive.** An orchestrator agent, builder and analyst subagents, parallel insight workers, a live router and an overnight operator. The developer decides; the agents build, measure, watch and act.
+- **Agents drive.** An orchestrator agent, builder and analyst subagents, parallel insight workers, a live router and an overnight operator rule. The developer decides; the agents build, measure, watch and act.
 - **RawTree is the memory.** Besides the shop's tables, every agent and service writes to one table of ours, `team_01.scratch`, with no schema: questions, claims, insights, traffic splits, operator decisions, a single-writer lock, leaderboard copies. More than 63,000 rows.
+- **The agents audit themselves.** Every tool call lands in RawTree as a trace row. Insight workers query those traces, and their first audit found a gap in our own telemetry, which we then fixed.
 - **Dev and prod.** Agents work on a laptop. Production is a VM that keeps getting deployed: a new model every 20 minutes, traffic changes hot-reloaded.
-- **Live traffic decides.** Models share live shoppers by hash. A challenger is promoted only after it leads the champion twice in a row. Overnight, an operator loop did this alone and logged every decision to RawTree.
+- **Live traffic decides.** Models share live shoppers by hash. A challenger is promoted only after it leads the champion twice in a row. Overnight, an operator loop did this alone and logged every decision to RawTree. It is a statistical rule, not an LLM: the agents propose, the rule promotes.
 
 ![The live page: shoppers answered, purchases, answer time, and the stream of answers](docs/readme/live.png)
 
@@ -62,7 +70,7 @@ flowchart LR
 | Analyst subagents | Get only the tables and the problem, not our beliefs, and report what they find. They found that lists staying in the category of the last product viewed sell more. |
 | Insight workers | Headless agents in parallel. Each claims an open question in RawTree and answers it only with read-only SQL through the RawTree MCP server. |
 | Live router | `q2q serve` on the VM. Reads events, stock and prices from RawTree every few seconds and answers every shopper. |
-| Overnight operator | A loop that ran with nobody watching. Every 15 minutes it read each model's score, started trials from a queue, retired models that fell behind, and wrote each decision to RawTree. |
+| Overnight operator | A statistical rule, not an LLM, that ran with nobody watching. Every 15 minutes it read each model's score, started trials from a queue, retired models that fell behind, and wrote each decision to RawTree. |
 
 ## RawTree beyond the main challenge
 
@@ -72,7 +80,7 @@ See the newest real row of each kind, live: **[quick2query.com/rawtree](https://
 
 | kind | What for | Written by | Rows |
 |---|---|---|---:|
-| `agent_trace` | Every tool call our agents made, loaded from their session logs as nested JSON: agent, tool, input fields, model, token usage, errors. A Langfuse-style trace store with no extra service. Structure only, never prompts or outputs (`scripts/ingest_traces.py`) | trace loader | 2,661 |
+| `agent_trace` | Every tool call our agents made, loaded from their session logs as nested JSON: agent, tool, input fields, model, token usage, errors. A Langfuse-style trace store with no extra service. Structure only, never prompts or outputs (`scripts/ingest_traces.py`). Insight workers also write their own rows live as they run | trace loader, insight workers | 2,700+ |
 | `leaderboard` | A copy of the public leaderboard at every refresh, so agents can query our standing over time with SQL | leaderboard logger | 45,526 |
 | `lease` | The single-writer lock: the prod router renews it every 5 s; any other router refuses to start | live router | 13,553 |
 | `explore` | Requests answered by the small random arm, with what was shown, so models learn without bias | live router | 4,236 |
@@ -125,6 +133,19 @@ flowchart LR
 
 The 26 hypotheses answered earlier in the event ([`docs/hypotheses/`](docs/hypotheses/)) are loaded into the same memory, marked as a backfill. Two things the workers found: in the hour after a price cut, purchases per view rose from 6.09% to 6.46% (1,198 cuts); and 600 products seen on the last day were missing from the catalogue, products added during the event that took 10.02% of purchases.
 
+### The agents audit themselves
+
+The traces are not only for us to look at. We seeded questions about the fleet's own `agent_trace` rows (origin `self`), and the insight workers answered them with SQL through the MCP server, like any other question:
+
+| Question | What the agents found |
+|---|---|
+| Which tools fail most? | Bash: 65 errors in 1,596 calls (4.1%). Main session 3.3% against subagents 2.4%, a gap explained by tool mix. |
+| What does a RawTree call cost? | 605 output tokens per RawTree call against 774 for other calls. **And:** 398 of 399 RawTree calls came through the shell, and none was logged as MCP. |
+| Do some questions waste effort? | An insight takes 4 MCP calls and about 20 s on average; open verdicts cost no more than decided ones. |
+| Do the rare failures cluster? | All Monitor and TaskStop errors sit in two sessions and three hours, none after 22:48. |
+
+The second answer exposed a real gap. The insight workers run headless with no session log, so their own RawTree MCP calls never reached the trace loader. We changed the workers to write one `agent_trace` row per tool call from their own output stream, with tokens and errors. The next round of self-audit questions showed up in the traces as `via: mcp`. The results are live on [quick2query.com](https://quick2query.com/#h-results).
+
 ![The /rawtree page: the newest real row of each kind](docs/readme/rawtree.png)
 
 ## Dev and prod
@@ -153,7 +174,7 @@ Offline results only filter ideas. Live shoppers decide.
 - A challenger is promoted only after it leads the champion in **two 30-minute windows in a row**. The old champion stays on as a control.
 - Requests are routed by kind: ordinary requests, the home page, new shoppers. Each kind has its own champion.
 
-Overnight, the **operator loop** did this with nobody watching. Every 15 minutes it read each arm's score, started 150-minute trials from a queue, and retired arms that fell clearly behind, measured in standard errors. It never dropped the champion and never emptied a list. Every decision went to RawTree as an `operator` row, and to the journal.
+Overnight, the **operator loop** did this with nobody watching. It is deliberately a statistical rule, not an LLM: the agents propose and build challengers, and a fixed rule decides promotions so production stays safe. Every 15 minutes it read each arm's score, started 150-minute trials from a queue, and retired arms that fell clearly behind, measured in standard errors. It never dropped the champion and never emptied a list. Every decision went to RawTree as an `operator` row, and to the journal.
 
 <details>
 <summary>Operator rules in detail</summary>
@@ -236,6 +257,8 @@ The memory is rows in `team_01.scratch`, append-only; the latest row per id wins
 ```bash
 uv run scripts/backfill_memory.py                       # once: the 26 answered hypotheses plus seed questions
 uv run scripts/insight_worker.py --workers 3 --runs 2   # 3 agents in parallel, 2 questions each
+uv run scripts/insight_worker.py --workers 3 --origin self --name self   # the fleet audits its own traces
+uv run scripts/ingest_traces.py                         # load the saved sessions' tool calls as agent_trace rows
 uv run scripts/agent_stats.py                           # writes site/stats.json
 ```
 
