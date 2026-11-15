@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>quick2query · what the agents keep in RawTree</title>
+<meta name="description" content="The rows a fleet of AI agents and the services they built write into RawTree: shared memory, the system's log and the evidence behind every decision. Live.">
+<link rel="icon" type="image/png" href="/static/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css?v=8">
+<style>
+  .rt-back { font: 500 14px var(--mono); color: var(--ink-2); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-height: 44px; display: inline-flex; align-items: center; }
+  .rt-back:hover { color: var(--ink); border-color: var(--ink-3); }
+  .rt-intro { max-width: 1640px; margin: 0 auto var(--s7); padding-top: var(--s6); }
+  .rt-intro h1 { font-size: clamp(30px, 2.8vw, 48px); font-weight: 700; letter-spacing: -.025em; max-width: 30ch; }
+  .rt-intro p { font-size: 18px; line-height: 1.55; color: var(--ink-2); max-width: 80ch; margin: 0 0 var(--s3); }
+  .rt-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5); }
+  .rt-card { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 14px; padding: var(--s4) var(--s5); min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
+  .rt-card .rt-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s4); flex-wrap: wrap; }
+  .rt-card h3 { margin: 0; font-size: 19px; font-weight: 600; }
+  .rt-card h3 code { font: 500 13px var(--mono); color: var(--ink-3); margin-left: var(--s2); }
+  .rt-card .rt-n { font: 700 22px var(--mono); letter-spacing: -.02em; white-space: nowrap; }
+  .rt-card .rt-n small { font: 400 12px var(--mono); color: var(--ink-3); margin-left: 6px; }
+  .rt-card p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+  .rt-card p b { color: var(--ink); font-weight: 600; }
+  .rt-card pre { margin: var(--s2) 0 0; background: rgba(11, 30, 74, .045); border: 1px solid var(--line); border-radius: 10px; padding: var(--s3) var(--s4); font: 12.5px/1.55 var(--mono); color: var(--ink); white-space: pre-wrap; word-break: break-word; max-height: 360px; overflow: auto; }
+  .rt-card pre .k { color: var(--ink-3); }
+  .rt-card .rt-meta { font: 12px var(--mono); color: var(--ink-3); }
+  .rt-note { font: 13px var(--mono); color: var(--ink-3); margin: var(--s3) 0 0; }
+  @media (max-width: 1000px) { .rt-rows { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body id="top">
+<div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div>
+
+<header class="top">
+  <a class="brand" href="/" aria-label="quick2query, back to the live page">
+    <span class="logo"><img src="/static/logo.png" alt="" width="64" height="64" onerror="this.parentNode.classList.add('nologo')"></span>
+    <span class="word">quick2query</span>
+  </a>
+  <p class="where mono">Datathon FME 2026 · RawTree challenge · team_01</p>
+  <a class="rt-back" href="/">Back to the live page</a>
+</header>
+
+<main>
+  <section class="rt-intro" aria-labelledby="h-page">
+    <h1 id="h-page">What our agents keep in RawTree</h1>
+    <p>The shop's data is only half of what lives in RawTree. Every agent and every service we built writes to one table of ours, <code>team_01.scratch</code>. Each kind of row has its own fields, and RawTree needs no schema for them: a new kind of row is just a new insert, queried with the same SQL.</p>
+    <p>Below is the newest real row of each kind, read live. Internal strategy names are replaced by the same public labels the shop sees, and the server's name is hidden.</p>
+    <p class="rt-note" id="status">loading…</p>
+  </section>
+
+  <section aria-labelledby="h-memory">
+    <div class="head">
+      <h2 id="h-memory">1. The agents' shared memory</h2>
+      <p>How parallel agents work together without talking to each other: questions, reservations and findings are rows that any agent can read.</p>
+    </div>
+    <div class="rt-rows" data-group="memory"></div>
+  </section>
+
+  <section aria-labelledby="h-log">
+    <div class="head">
+      <h2 id="h-log">2. The system's own log and control plane</h2>
+      <p>The live service and the overnight operator record every decision they take, so a person or an agent can audit it later with one query.</p>
+    </div>
+    <div class="rt-rows" data-group="log"></div>
+  </section>
+
+  <section aria-labelledby="h-evidence">
+    <div class="head">
+      <h2 id="h-evidence">3. The evidence behind every decision</h2>
+      <p>The data the models learn from and the record of how each idea did, kept so that results can be replayed and checked.</p>
+    </div>
+    <div class="rt-rows" data-group="evidence"></div>
+  </section>
+</main>
+
+<footer class="foot mono"><span>quick2query · one developer and a fleet of agents</span><a href="/" class="mono">Back to the live page</a></footer>
+
+<script>
+const KINDS = [
+  ["memory", "question", "Questions", "Work an agent leaves for the others. Each one links to the finding that raised it (<b>parent</b>), so the chain of reasoning can be followed back.", "agents"],
+  ["memory", "claim", "Claims", "Before working on a question, a worker writes a claim and reads the claims back; the earliest wins. Parallel workers never take the same question, with no lock server.", "insight workers"],
+  ["memory", "insight", "Insights", "The finding and a verdict, plus how it was found: the exact <b>sql</b>, the <b>tools_used</b>, the <b>mcp_calls</b> and the time it took. Its <b>next</b> questions become new question rows, which closes the loop.", "insight workers"],
+  ["log", "arms", "Traffic splits", "Every change to which strategy gets which share of shoppers, with the champion, the exploration share and the hash salt.", "the live service"],
+  ["log", "operator", "Operator decisions", "The unattended overnight loop: the per-strategy scores it read (<b>board</b>), what it kept, started or retired, and why (<b>notes</b>).", "the operator"],
+  ["log", "lease", "Single-writer lock", "A heartbeat every few seconds from the one process allowed to answer the shop: host, process id, start time and the strategy it serves.", "the live service"],
+  ["evidence", "explore", "Exploration log", "Lists shown to a small exploration share, with the probability of each list (<b>propensity</b>), so the models learn about products the champion would never show.", "the live service"],
+  ["evidence", "leaderboard", "Leaderboard copies", "Every public leaderboard refresh, kept to replay our own live tests and to read ranks after the fact.", "a logger"],
+  ["evidence", "block", "Test blocks", "The early timed A/B blocks, before the leaderboard scored each model: arm, share, click and purchase rates, lift and score.", "a logger"],
+];
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = (n) => n == null ? "–" : Number(n).toLocaleString("en-US");
+
+function trim(v, depth = 0) {
+  if (typeof v === "string") {
+    if (/^[\[{]/.test(v.trim())) { try { return trim(JSON.parse(v), depth); } catch (e) {} }
+    return v.length > 280 ? v.slice(0, 280) + " …" : v;
+  }
+  if (Array.isArray(v)) {
+    const t = v.slice(0, 4).map((x) => trim(x, depth + 1));
+    if (v.length > 4) t.push(`… ${v.length - 4} more`);
+    return t;
+  }
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, trim(x, depth + 1)]));
+  return v;
+}
+function pretty(row) {
+  const order = ["kind", "ts"];
+  const keys = [...order.filter((k) => k in row), ...Object.keys(row).filter((k) => !order.includes(k)).sort()];
+  const obj = Object.fromEntries(keys.map((k) => [k, trim(row[k])]));
+  return esc(JSON.stringify(obj, null, 2)).replace(/^(\s*)&quot;([a-z_]+)&quot;:/gm, '$1<span class="k">$2</span>:');
+}
+
+function build() {
+  for (const [group, kind, name, what, who] of KINDS) {
+    const box = document.querySelector(`[data-group="${group}"]`);
+    box.insertAdjacentHTML("beforeend", `<article class="rt-card" id="r-${kind}">
+      <div class="rt-head"><h3>${name}<code>kind = '${kind}'</code></h3><span class="rt-n" id="n-${kind}">–<small>rows</small></span></div>
+      <p>${what}</p><p class="rt-meta">written by ${who}</p>
+      <pre id="x-${kind}" aria-label="The newest ${name.toLowerCase()} row">waiting for data…</pre></article>`);
+  }
+}
+
+async function tick() {
+  try {
+    const r = await fetch("/api/rawtree");
+    const d = await r.json();
+    for (const [, kind] of KINDS) {
+      const n = d.counts[kind];
+      document.getElementById("n-" + kind).innerHTML = `${fmt(n)}<small>rows</small>`;
+      const ex = d.examples[kind];
+      const pre = document.getElementById("x-" + kind);
+      const html = ex ? pretty(ex) : "no row yet";
+      if (pre.dataset.html !== html) { pre.dataset.html = html; pre.innerHTML = html; }
+    }
+    const total = Object.values(d.counts).reduce((a, b) => a + Number(b || 0), 0);
+    document.getElementById("status").textContent = `live · ${fmt(total)} rows in team_01.scratch · read at ${d.now} UTC`;
+  } catch (e) {
+    document.getElementById("status").textContent = "could not reach the server, retrying";
+  }
+}
+build();
+tick();
+setInterval(tick, 15000);
+</script>
+</body>
+</html>

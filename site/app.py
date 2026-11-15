@@ -51,9 +51,14 @@ WHERE ts::DateTime64(3) > now64(3) - INTERVAL 15 MINUTE AND served_by::String = 
     "questions": """
 SELECT count() AS open FROM (SELECT DISTINCT id::String AS q FROM {TEAM}.scratch WHERE kind::String = 'question')
 WHERE q NOT IN (SELECT id::String FROM {TEAM}.scratch WHERE kind::String = 'insight')""",
+    "examples": """
+SELECT * FROM {TEAM}.scratch
+WHERE kind::String IN ('insight', 'question', 'claim', 'arms', 'operator', 'lease', 'explore', 'leaderboard', 'block')
+  AND (kind::String != 'leaderboard' OR (team_id::String = '{TEAM}' AND mode::String = 'practice'))
+ORDER BY ts::String DESC LIMIT 1 BY kind::String""",
     "scratch": "SELECT kind::String AS k, count() AS n, max(ts::String) AS last FROM {TEAM}.scratch GROUP BY k ORDER BY n DESC",
 }
-EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15}   # slower-moving sources, seconds
+EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15, "examples": 30}   # slower-moving sources, seconds
 
 cache: dict[str, dict] = {}       # name -> {"rows", "at", "error", "ms"}
 categories: dict[str, str] = {}
@@ -148,6 +153,16 @@ def insights(rows: list[dict]) -> list[dict]:
              "mcp_calls": int(r.get("mcp_calls") or 0) if str(r.get("mcp_calls") or "0").isdigit() else 0} for r in rows]
 
 
+def examples(rows: list[dict]) -> dict:
+    """The newest row of each kind, internal names replaced by public labels and the host name hidden."""
+    out = {}
+    for r in rows:
+        r = {k: v for k, v in r.items() if v is not None and k != "progress"}
+        text = re.sub(r"instance-[0-9-]+", "prod-vm", hide_names(json.dumps(r, default=str)))
+        out[r.get("kind", "?")] = json.loads(text)
+    return out
+
+
 def stats() -> dict:
     s = {}
     try:
@@ -205,9 +220,19 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-        elif path == "/" or path.startswith("/static/"):
-            self.path = "/index.html" if path == "/" else path[len("/static"):]
-            if self.path.lstrip("/") not in ("index.html", "style.css", "app.js", "logo.png"):
+        elif path == "/api/rawtree":
+            rows = {k: cache.get(k, {}).get("rows", []) for k in ("scratch", "examples")}
+            body = json.dumps({"now": time.strftime("%H:%M:%S", time.gmtime()), "examples": examples(rows["examples"]),
+                               "counts": {r["k"]: r["n"] for r in rows["scratch"]}}, default=str).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "public, max-age=10, s-maxage=10")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif path in ("/", "/rawtree") or path.startswith("/static/"):
+            self.path = {"/": "/index.html", "/rawtree": "/rawtree.html"}.get(path) or path[len("/static"):]
+            if self.path.lstrip("/") not in ("index.html", "rawtree.html", "style.css", "app.js", "logo.png"):
                 self.send_error(404)
                 return
             super().do_GET()

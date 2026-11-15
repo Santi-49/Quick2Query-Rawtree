@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=7">
+<link rel="stylesheet" href="/static/style.css?v=8">
 </head>
 <body id="top">
 <div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div>
@@ -103,7 +103,7 @@
     <h2 id="h-side">Agents on RawTree: the side challenge</h2>
     <p class="part-lead">Answering the shop is the main challenge. Everything from here down is how one developer built it: a fleet of agents that use RawTree for far more than the shop's data. It is their shared memory, the system's log and the judge of every idea.</p>
     <div class="pillars">
-      <div><h3>RawTree beyond the shop's data</h3><p>Our own table holds the agents' questions, claims and findings, every change to the traffic split, the overnight operator's decisions, the single-writer lock and a copy of every leaderboard refresh. The live counts are below.</p></div>
+      <div><h3>RawTree beyond the shop's data</h3><p>Our own table holds the agents' questions, claims and findings, every change to the traffic split, the overnight operator's decisions, the single-writer lock and a copy of every leaderboard refresh. The live counts are below, and <a href="/rawtree">real rows of each kind are on their own page</a>.</p></div>
       <div><h3>Dev on the laptop, prod on a VM</h3><p>The agents work on the laptop: they train, test offline and run the router in shadow mode, which computes answers without sending them. The VM serves around the clock under systemd, restarts itself, reloads the traffic split without a restart and gets a new model every 20 minutes. Breaking something in dev never touches prod.</p></div>
       <div><h3>Every idea earns live traffic</h3><p>The router splits shoppers by a hash between the champion and its challengers in fixed shares. The leaderboard scores each one separately, and a challenger is promoted only after it leads two 30-minute windows in a row. Overnight an operator loop did this unattended.</p></div>
     </div>
@@ -146,6 +146,7 @@
     <div class="head">
       <h2 id="h-beyond">What we keep in RawTree beyond the challenge</h2>
       <p>Besides the shop's tables, every agent and every service writes to one table of ours. Each kind of row has its own fields; RawTree needs no schema for them. Live counts, read every 15 seconds.</p>
+      <p class="seerows"><a href="/rawtree">See the newest real row of each kind</a></p>
     </div>
     <div class="tablewrap">
       <table class="streams kinds">

@@ -303,3 +303,7 @@ figure svg { width: 100%; height: auto; display: block; overflow: visible; }
 .kinds .num { text-align: right; white-space: nowrap; padding-right: 0; padding-left: var(--s4); }
 .kinds td.num { color: var(--ink); }
 @media (max-width: 900px) { .pillars { grid-template-columns: minmax(0, 1fr); } }
+.pillars a, .seerows a { color: var(--ink); font-weight: 600; text-underline-offset: 3px; }
+.seerows { margin: var(--s3) 0 0 !important; }
+.seerows a { display: inline-flex; align-items: center; min-height: 44px; font-size: 16px; }
+.seerows a::after { content: "\2192"; margin-left: 8px; }
