@@ -11,7 +11,9 @@ Datathon FME 2026, RawTree challenge, `team_01`. Read `docs/PLAN.md` and `docs/S
 - On datathon.rawtree.dev only `/api/state` and the `/leaderboard` page may be called, read-only and occasionally (allowed by the owner, 15 Nov 09:50 UTC).
 - Do not edit `starter/`.
 
-## Prod is the VM (since 14 Nov 18:10 UTC)
+## Prod was the VM (14 Nov 18:10 UTC to 17 Nov); shut down after the datathon, nothing runs now
+
+The section below describes how it ran.
 
 The router and the operator run on ssh host `Server_2` in `~/q2q` as systemd services `q2q-router` and `q2q-operator`. The laptop is dev: training (`train2`), `scripts/push_models.py`, the loggers and the dashboard. **Never start `q2q serve` on the laptop without `--shadow`.**
 

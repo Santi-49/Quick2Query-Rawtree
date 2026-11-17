@@ -9,6 +9,8 @@ Data never stops changing, so the agents never stop either.
 
 Datathon FME 2026 · RawTree challenge · team_01 · side challenge: *Best agentic use of RawTree*
 
+> **The live site and the router ran during the datathon (14 to 15 Nov 2026) and are now offline.**
+>
 > **Live demo:** [quick2query.com](https://quick2query.com) shows real-time predictions, feedback, the agent fleet and the numbers.
 > **[quick2query.com/rawtree](https://quick2query.com/rawtree)** shows the newest real row of each kind our agents keep in RawTree, read live.
 
@@ -228,7 +230,7 @@ Any stream that drifts needs the same loop: device telemetry, logs, prices. Watc
 ## Results
 
 - In practice, our rank went from **14th to a best of 8th of 42** within hours of the learned ranker going live.
-- **Final result: to be added.** The final round ran from 09:00 to 11:00 UTC on 15 November with the leaderboard hidden.
+- **Final result: 10th of 42, score 50.3** (winner 58.3). The final round ran from 09:00 to 11:00 UTC on 15 November with the leaderboard hidden: 21,600 shoppers, conversion 1.99% (baseline 0.75%, reference 2.14%, winner 2.25%), cold start 2.34%, on time 99.99%. In practice that morning we were 12th to 14th.
 
 The full story, with figures: [`docs/explainer.html`](docs/explainer.html). Every decision, dated: [`docs/JOURNAL.md`](docs/JOURNAL.md).
 

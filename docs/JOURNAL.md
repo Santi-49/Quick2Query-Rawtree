@@ -149,3 +149,11 @@ Second from-scratch test, similar-product suppression (4 h, shoppers with earlie
 ## 15 Nov 08:15 UTC: presentation brief
 
 docs/PRESENTATION.md: a slide-by-slide brief for the jury deck (12 slides, key numbers with sources, glossary, final-round placeholders). Board snapshots this morning (data/leaderboard, 60-min window, conversion): 12th to 14th of 42 from 05:36 to 07:24; at 07:24 14th with 1.83% against 2.06% for 10th and 2.19% for 3rd-5th.
+
+## 15 Nov 11:00 UTC: final result
+
+10th of 42, score 50.3 (winner team_33 58.3, 9th 51.3, 11th 50.0). 21,600 shoppers, conversion 1.99% (baseline 0.75%, reference 2.14%, winner 2.25%), cold start 2.34%, on time 99.99%. Conversion score 43.3, cold score 35.5. Last model on the board: shaleE-n (ranker8, new shoppers); ranker2 answered ordinary requests and the home page. Source: data/leaderboard/2026-11-15T112649.json, mode final.
+
+## 17 Nov: shut down
+
+Datathon over. Laptop: the leaderboard logger, the train2 loop, push_models and the dashboard stopped. VM (Server_2): q2q-router and q2q-operator stopped, disabled and removed, ~/q2q (with its .env) and uv deleted, shell files back as they were; logs, data and models copied first to logs/vm-final/q2q-vm.tar.gz on the laptop (not in git). quick2query.com is offline. Slides for the side challenge: docs/slides/.
