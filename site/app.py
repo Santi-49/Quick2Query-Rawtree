@@ -1,8 +1,10 @@
 """Live demo site. One thread reads RawTree every 5 s into a cache; viewers only read the cache.
 
-    uv run python site/app.py            # http://127.0.0.1:8787
+    uv run python site/app.py            # http://127.0.0.1:8787 (PORT=8788 for another)
+    SIMULATE=1 uv run python site/app.py # replay the final 09:00-11:00 UTC, 15 Nov; on by default after it, SIMULATE=0 for off
     SHOW_NAMES=1 uv run python site/app.py   # also decode model_version into strategy names
 """
+import calendar
 import json
 import re
 import os
@@ -16,36 +18,36 @@ from q2q import rt
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 LIMIT = " SETTINGS max_execution_time=10"
-REQ = "(SELECT request_id::String FROM shop.requests WHERE ts::DateTime64(3) > now64(3) - INTERVAL 3 MINUTE)"
+REQ = "(SELECT request_id::String FROM shop.requests WHERE ts::DateTime64(3) > now64(3) - INTERVAL 3 MINUTE AND ts::DateTime64(3) <= now64(3))"
 
 SQL = {
     "stream": f"""
 SELECT r.ts::String AS ts, r.request_id::String AS rid, r.is_new_user::Bool AS new_user,
        length(r.recent_views::Array(JSON)) AS views, s.mv AS mv, s.items AS items,
        f.n AS fb, f.clicked AS clicked, f.purchased AS purchased, f.latency AS latency, f.served_by AS served_by
-FROM (SELECT * FROM shop.requests WHERE ts::DateTime64(3) > now64(3) - INTERVAL 3 MINUTE ORDER BY ts::DateTime64(3) DESC LIMIT 240) r
+FROM (SELECT * FROM shop.requests WHERE ts::DateTime64(3) > now64(3) - INTERVAL 3 MINUTE AND ts::DateTime64(3) <= now64(3) ORDER BY ts::DateTime64(3) DESC LIMIT 240) r
 LEFT JOIN (SELECT request_id::String AS rid, any(model_version::String) AS mv, any(items::Array(String)) AS items
            FROM {{TEAM}}.submissions WHERE request_id::String IN {REQ} GROUP BY rid) s ON s.rid = r.request_id::String
 LEFT JOIN (SELECT request_id::String AS rid, count() AS n, any(clicked::String) AS clicked, any(purchased::String) AS purchased,
                   any(toFloat64OrZero(toString(latency_ms))) AS latency, any(served_by::String) AS served_by
-           FROM {{TEAM}}.feedback WHERE ts::DateTime64(3) > now64(3) - INTERVAL 4 MINUTE GROUP BY rid) f ON f.rid = r.request_id::String
+           FROM {{TEAM}}.feedback WHERE ts::DateTime64(3) > now64(3) - INTERVAL 4 MINUTE AND ts::DateTime64(3) <= now64(3) GROUP BY rid) f ON f.rid = r.request_id::String
 ORDER BY r.ts::DateTime64(3) DESC""",
     "minutes": """
 SELECT toStartOfMinute(ts::DateTime64(3))::String AS m, count() AS n, countIf(clicked::String != '') AS clicks,
        countIf(purchased::String != '') AS buys, round(sum(toFloat64OrZero(toString(revenue_eur))), 2) AS revenue,
        quantile(0.5)(toFloat64OrZero(toString(latency_ms))) AS p50
-FROM {TEAM}.feedback WHERE ts::DateTime64(3) > now64(3) - INTERVAL 120 MINUTE GROUP BY m ORDER BY m""",
+FROM {TEAM}.feedback WHERE ts::DateTime64(3) > now64(3) - INTERVAL 120 MINUTE AND ts::DateTime64(3) <= now64(3) GROUP BY m ORDER BY m""",
     "slots": """
 SELECT indexOf(shown::Array(String), clicked::String) AS slot, count() AS n
-FROM {TEAM}.feedback WHERE ts::DateTime64(3) > now64(3) - INTERVAL 60 MINUTE AND clicked::String != ''
+FROM {TEAM}.feedback WHERE ts::DateTime64(3) > now64(3) - INTERVAL 60 MINUTE AND ts::DateTime64(3) <= now64(3) AND clicked::String != ''
 GROUP BY slot ORDER BY slot""",
     "today": """
 SELECT count() AS n, countIf(served_by::String = 'team') AS on_time, countIf(purchased::String != '') AS buys,
        round(sum(toFloat64OrZero(toString(revenue_eur))), 2) AS revenue, uniqExact(model_version::String) AS labels
-FROM {TEAM}.feedback WHERE ts::DateTime64(3) >= toStartOfDay(now64(3))""",
+FROM {TEAM}.feedback WHERE ts::DateTime64(3) >= toStartOfDay(now64(3)) AND ts::DateTime64(3) <= now64(3)""",
     "arms": """
 SELECT model_version::String AS mv, count() AS n FROM {TEAM}.feedback
-WHERE ts::DateTime64(3) > now64(3) - INTERVAL 15 MINUTE AND served_by::String = 'team' GROUP BY mv ORDER BY n DESC""",
+WHERE ts::DateTime64(3) > now64(3) - INTERVAL 15 MINUTE AND ts::DateTime64(3) <= now64(3) AND served_by::String = 'team' GROUP BY mv ORDER BY n DESC""",
     "insights": "SELECT * FROM {TEAM}.scratch WHERE kind::String = 'insight' ORDER BY ts::String DESC LIMIT 15",
     "insight_count": "SELECT count() AS n, sum(toInt64OrZero(toString(mcp_calls))) AS mcp FROM {TEAM}.scratch WHERE kind::String = 'insight'",
     "questions": """
@@ -56,7 +58,7 @@ SELECT * FROM {TEAM}.scratch
 WHERE kind::String IN ('agent_trace', 'insight', 'question', 'claim', 'arms', 'operator', 'lease', 'explore', 'leaderboard', 'block')
   AND (kind::String != 'leaderboard' OR (team_id::String = '{TEAM}' AND mode::String = 'practice'))
 ORDER BY ts::String DESC LIMIT 1 BY kind::String""",
-    "lease": "SELECT ts::String AS ts, started::String AS started, dateDiff('second', ts::DateTime64(3), now64(3)) AS age FROM {TEAM}.scratch WHERE kind::String = 'lease' ORDER BY ts::String DESC LIMIT 1",
+    "lease": "SELECT ts::String AS ts, started::String AS started, dateDiff('second', ts::DateTime64(3), now64(3)) AS age FROM {TEAM}.scratch WHERE kind::String = 'lease' AND ts::DateTime64(3) <= now64(3) ORDER BY ts::String DESC LIMIT 1",
     "traces_who": """
 SELECT if(subagent::Bool, 'subagents', 'main sessions') AS who, count() AS calls, uniqExact(agent::String) AS agents,
        countIf(rawtree::Bool) AS rawtree, countIf(is_error::Bool) AS errors, sum(toInt64OrZero(toString(usage.output_tokens))) AS out_tokens
@@ -77,6 +79,29 @@ FROM {TEAM}.scratch WHERE kind::String = 'insight' AND agent::String LIKE 'self%
     "scratch": "SELECT kind::String AS k, count() AS n, max(ts::String) AS last FROM {TEAM}.scratch GROUP BY k ORDER BY n DESC",
 }
 EVERY = {"insights": 15, "insight_count": 15, "questions": 15, "scratch": 15, "examples": 30, "lease": 5, "traces_who": 60, "traces_hour": 60, "lb_rank": 300, "verdicts": 30, "audit": 60}   # slower-moving sources, seconds
+
+# Simulation: the live stream ended at 11:00 UTC on 15 Nov 2026. Replay our real final (09:00-11:00 UTC) in a loop,
+# shifted to now: every now64(3) above becomes the replay clock, "today" becomes the start of the final.
+# On with SIMULATE=1, and by default once the final is over; SIMULATE=0 turns it off.
+SIM_START, SIM_LEN, SIM_LEAD = calendar.timegm((2026, 11, 15, 9, 0, 0)), 7200, 300   # the replay starts at 09:05
+SIM = os.environ.get("SIMULATE", "1" if time.time() > SIM_START + SIM_LEN else "0") == "1"
+ANCHOR = time.time()
+
+
+def sim_now() -> float:
+    return SIM_START + (SIM_LEAD + time.time() - ANCHOR) % SIM_LEN
+
+
+def stamp(t: float) -> str:
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(t)) + f".{int(t * 1000) % 1000:03d}"
+
+
+def at_now(sql: str) -> str:
+    if not SIM:
+        return sql
+    return (sql.replace("toStartOfDay(now64(3))", f"toDateTime64('{stamp(SIM_START)}', 3)")
+               .replace("now64(3)", f"toDateTime64('{stamp(sim_now())}', 3)"))
+
 
 cache: dict[str, dict] = {}       # name -> {"rows", "at", "error", "ms"}
 categories: dict[str, str] = {}
@@ -118,7 +143,7 @@ def refresh() -> None:
                 continue
             t = time.time()
             try:
-                rows = rt.query(sql + LIMIT, timeout=15)
+                rows = rt.query(at_now(sql) + LIMIT, timeout=15)
                 cache[key] = {"rows": rows, "at": time.time(), "error": "", "ms": round(1000 * (time.time() - t)), "tried": t}
             except Exception as e:   # keep the last good rows, say how old they are
                 cache[key] = {**old, "error": str(e)[:160].split("\n")[0], "tried": t}
@@ -224,7 +249,8 @@ def live() -> dict:
     s.setdefault("insight_rows_live", count.get("n"))
     s.setdefault("mcp_calls_total", count.get("mcp"))
     return {
-        "now": time.strftime("%H:%M:%S", time.gmtime(now)),
+        "now": time.strftime("%H:%M:%S", time.gmtime(sim_now() if SIM else now)),
+        "sim": {"on": SIM, "now": stamp(sim_now()), "start": stamp(SIM_START), "end": stamp(SIM_START + SIM_LEN)} if SIM else {"on": False},
         "sources": {k: {"age_s": round(now - v["at"], 1) if v.get("at") else None, "ms": v.get("ms"), "error": v.get("error", "")}
                     for k, v in cache.items()},
         "stream_age_s": round(now - cache["stream"]["at"], 1) if cache.get("stream", {}).get("at") else None,

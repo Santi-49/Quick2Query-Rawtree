@@ -1,6 +1,6 @@
 # Presentation brief · quick2query (team_01)
 
-For the agent that builds the jury slides; nothing else is needed. Every number cites its source file. Times are UTC (Barcelona = UTC+1). The final round runs 09:00–11:00 UTC on 15 Nov. Its results do not exist yet: they are marked `TBD (final round)`.
+For the agent that builds the jury slides; nothing else is needed. Every number cites its source file. Times are UTC (Barcelona = UTC+1). The final round ran 09:00–11:00 UTC on 15 Nov: 10th of 42, score 50.3.
 
 Jury criteria (README.md): Method 10, Learning from the stream 10, Use of RawTree 5, Communication 5, plus a side prize for "Best agentic use of RawTree". Audience: data and ML people and the organisers. Keep slides plain.
 
@@ -79,7 +79,7 @@ A simulated shop sends about 3 shoppers per second; for each we have 3 seconds t
 - baseline → rules (13:36) → rules2 (15:08) → ranker (16:35) → rules4 (17:25) → ranker2 (18:28). Final arms set at 07:59: ranker2 on main and home, ranker8 on new shoppers, explore 0.
 - Team rank over 60 min: 14th at 17:20, 9th at 18:25, 11th of 42 at 21:12 (9th over 3 h). Clean window 22:15–22:30: 8th of 42, +40.9 (top team +54.8). Morning of 15 Nov, on conversion: 12th to 14th of 42 (05:36–07:24), dragged down by the many test arms and one restart.
 - In the clean window: ordinary 1.80%, new shoppers 2.80%, home 0.54% vs baseline 0.57%. Home is the gap we did not close.
-- Final round: `TBD (final round)`.
+- Final round: 10th of 42, score 50.3 (winner 58.3); 21,600 shoppers, conversion 1.99% (baseline 0.75%, reference 2.14%, winner 2.25%), cold start 2.34%, on time 99.99%. Source: `data/leaderboard/2026-11-15T112649.json`.
 - **Numbers:** JOURNAL 13:36, 15:08, 16:35, 17:25, 18:28, 21:12, 22:35; 15 Nov 07:59.
 - **Visual:** timeline of champions with team rank underneath.
 
@@ -148,7 +148,7 @@ A simulated shop sends about 3 shoppers per second; for each we have 3 seconds t
 | 75-min read, new / home | ranker8 +85.9 (825), aff1 +67.7 / ranker2 −0.3, aff1 −0.3, super1 −1.6 | JOURNAL | 15 Nov 07:55 |
 | ranker8 vs ranker2, new shoppers, 3 h | +78.5 vs +63.1 | JOURNAL | 15 Nov 06:42 |
 | Strategy files / hypothesis files / SQL files | 31 / 25 / 35 | src/q2q/strategies/, docs/hypotheses/, sql/ | 15 Nov 08:10 |
-| Final-round rank, score, conversion, cold start, reliability | TBD (final round) | — | 15 Nov 09:00–11:00 |
+| Final-round rank, score, conversion, cold start, reliability | 10th of 42; score 50.3; 1.99%; 2.34%; 99.99% on time | — | 15 Nov 09:00–11:00 |
 
 Where sources disagree:
 - The reference reads 2.01% at 13:36 and 2.10–2.13% later. Use 2.10% (SIMULATOR.md).
@@ -169,6 +169,6 @@ Where sources disagree:
 
 ## 5. Placeholders and notes for the slide builder
 
-- Final-round rank, score, conversion, cold-start score and reliability: `TBD (final round)`. The final runs 09:00–11:00 UTC on 15 Nov, and the ranking appears at 11:00 UTC.
+- Final-round result is filled in above (source `data/leaderboard/2026-11-15T112649.json`).
 - The latest team rank in the sources is 14th of 42 on conversion (15 Nov 07:24, during the morning tests); the best was 8th of 42 (14 Nov 22:15–22:30). Do not invent a later one.
 - Not for a slide, but be ready if asked: a helper script fetched the challenge page every 5 min from 14 Nov 16:40 until 15 Nov 08:06, against our own "/api/state only" rule; stopped and logged (JOURNAL 15 Nov 08:06).

@@ -94,6 +94,11 @@ function stream(rows) {
   feedKey = key;
   latest.clear();
   rows.forEach((r) => latest.set(r.rid, r));
+  if (feed.length && rows.length && rows[0].ts < feed[0].r.ts && last && last.sim && last.sim.on) {   // the replay looped back to 09:00
+    feed.splice(0).forEach((f) => { if (f.move) f.move.cancel(); f.el.remove(); });
+    queue.length = 0;
+    passed.clear();
+  }
 
   if (!feed.length) {                                        // first fill: no motion, newest on top
     box.innerHTML = "";
@@ -604,14 +609,25 @@ function results(a) {
       `<p class="res-note">${Math.round(100 * (v.rejected || 0) / total)}% of ideas were rejected by the data before they cost live traffic.</p>`;
   }
 }
+// simulation: banner and labels say it is a replay of the final; every swapped text keeps its live wording to come back to
+function simMode(sim) {
+  const on = !!(sim && sim.on);
+  $("sim-banner").hidden = !on;
+  $("sim-tag").hidden = !on;
+  document.querySelectorAll("[data-sim]").forEach((el) => {
+    if (el.dataset.live == null) el.dataset.live = el.textContent;
+    text(el.id, on ? el.dataset.sim : el.dataset.live);
+  });
+}
 function render(d) {
+  simMode(d.sim);
   results(d.analysis);
   prod(d.prod);
   champ(d.arms);
   kinds(d.scratch);
   const age = d.stream_age_s;
   $("dot").className = "dot " + (age != null && age < 20 ? "on" : "stale");
-  $("status").innerHTML = age == null ? "starting" : `${age < 20 ? "live" : "stale"} · data ${fmt(age)} s old<span class="wide"> · ${d.now} UTC</span>`;
+  $("status").innerHTML = age == null ? "starting" : `${age < 20 ? (d.sim && d.sim.on ? "replay" : "live") : "stale"} · data ${fmt(age)} s old<span class="wide"> · ${d.now} UTC${d.sim && d.sim.on ? " in the final" : ""}</span>`;
   const t = d.today || {}, l = d.last15 || {}, s = d.stats || {};
   count("k-n", t.n);
   text("k-ontime", t.n ? `${fmt(100 * t.on_time / t.n, 2)}% inside the deadline` : "");
@@ -632,8 +648,8 @@ function render(d) {
     builders: `${s.strategy_files} strategies · ${s.sql_files} SQL files`,
     analysts: `${s.hypothesis_files} hypotheses`,
     workers: `${fmt(insights)} insights${s.mcp_calls_total ? " · " + fmt(s.mcp_calls_total) + " MCP calls" : ""}`,
-    rawtree: `${fmt(t.n)} answers today\n${fmt(insights)} insight rows\n${fmt(d.questions_open)} questions open`,
-    source: `${fmt(t.buys)} purchases today`,
+    rawtree: `${fmt(t.n)} answers ${d.sim && d.sim.on ? "in the final" : "today"}\n${fmt(insights)} insight rows\n${fmt(d.questions_open)} questions open`,
+    source: `${fmt(t.buys)} purchases ${d.sim && d.sim.on ? "in the final" : "today"}`,
     service: `median answer ${fmt(l.p50)} ms
 ${arms} strategies live`,
     operator: "",

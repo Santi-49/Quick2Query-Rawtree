@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css?v=14">
+<link rel="stylesheet" href="/static/style.css?v=15">
 </head>
 <body id="top">
 <div class="orb o1" aria-hidden="true"></div><div class="orb o2" aria-hidden="true"></div>
@@ -25,15 +25,16 @@
 </header>
 
 <main>
+  <p class="sim-banner" id="sim-banner" role="status" hidden><b>Simulation:</b> a replay of our real final (09:00–11:00 UTC, 15 Nov), shifted to now. The live stream has ended.</p>
   <section class="intro" aria-labelledby="h-intro">
     <div class="lede">
       <h1 id="h-intro">Data never stops changing. So our agents never stop either.</h1>
       <p class="sub">One developer and a fleet of AI agents watch a live stream, ask questions of it in RawTree, test every idea on live traffic and adapt as the data drifts. RawTree is their shared memory. Here the stream is a shop; the same fleet works on sensor telemetry, logs or prices.</p>
-      <p class="case"><b>The case on this page:</b> a shop sends us a shopper every 0.3 seconds. We answer with 10 products in under 3 seconds, and a hidden model decides whether the shopper clicks and buys. Everything below is read live from RawTree every 5 seconds. Nothing is a recording.</p>
+      <p class="case"><b>The case on this page:</b> a shop sends us a shopper every 0.3 seconds. We answer with 10 products in under 3 seconds, and a hidden model decides whether the shopper clicks and buys. <span id="case-src" data-sim="The stream has ended, so the rows below are the real rows of our final, read from RawTree every 5 seconds and replayed on a clock shifted to now.">Everything below is read live from RawTree every 5 seconds. Nothing is a recording.</span></p>
     </div>
     <dl class="counters">
-      <div class="c"><dt>Shoppers answered today</dt><dd class="mono" id="k-n">–</dd><span class="note mono" id="k-ontime"></span></div>
-      <div class="c"><dt>Purchases today</dt><dd class="mono" id="k-buys">–</dd><span class="note mono" id="k-rev"></span></div>
+      <div class="c"><dt id="k-n-dt" data-sim="Shoppers answered in the final so far">Shoppers answered today</dt><dd class="mono" id="k-n">–</dd><span class="note mono" id="k-ontime"></span></div>
+      <div class="c"><dt id="k-buys-dt" data-sim="Purchases in the final so far">Purchases today</dt><dd class="mono" id="k-buys">–</dd><span class="note mono" id="k-rev"></span></div>
       <div class="c"><dt>Shoppers who bought, last 15 min</dt><dd class="mono" id="k-conv">–</dd><span class="note mono" id="k-conv-n"></span></div>
       <div class="c"><dt>Median answer time</dt><dd class="mono" id="k-p50">–</dd><span class="note mono">the deadline is 3,000 ms</span></div>
     </dl>
@@ -41,7 +42,7 @@
 
   <section class="stream" id="stream" aria-labelledby="h-stream">
     <div class="head">
-      <h2 id="h-stream">The live stream</h2>
+      <h2 id="h-stream"><span id="h-stream-t" data-sim="The stream, replayed">The live stream</span> <span class="sim-tag mono" id="sim-tag" hidden>Simulation: replay of the final</span></h2>
       <p>Each row is one shopper from the last seconds, newest on top. The shop sends about three a second; the list lets in one at a time, about one a second, so that each row can be followed.</p>
     </div>
     <p class="howto"><b>How to read a row:</b> when the shopper arrived, who they are, which of our strategies answered, the 10 products we showed (slot 1 on the left, one colour per category), then what the shopper did.
@@ -170,6 +171,7 @@
       <li class="win"><time>18:28</time><p><b class="mono">shale</b>, the learned ranker, becomes champion. Rank 14th to 9th, later a best of 8th of 42.</p></li>
       <li><time>Overnight</time><p>The operator gives challengers 150 minutes each against <b class="mono">shale</b>. None is ahead; each is retired and logged.</p></li>
       <li class="win"><time>Sun 07:59</time><p>Final split from a 75-minute read: <b class="mono">shale</b> +55.0 against the best challenger's +52.3; for new shoppers <b class="mono">shaleE-n</b> +85.9 against +67.7. Early leads in short windows were noise.</p></li>
+      <li class="win"><time>Sun 09:00–11:00</time><p>The final, on new shoppers and products, leaderboard hidden. <b>10th of 42</b>, score 50.3: 1.99% of shoppers bought, against 0.75% for the shop's baseline, and 99.99% of answers on time.</p></li>
     </ol>
   </section>
 
@@ -288,6 +290,6 @@
 </main>
 
 <footer class="foot mono"><span>quick2query · one developer and a fleet of agents</span><span id="sources"></span></footer>
-<script src="/static/app.js?v=15"></script>
+<script src="/static/app.js?v=16"></script>
 </body>
 </html>
